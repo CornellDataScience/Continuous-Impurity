@@ -8,6 +8,13 @@ import function.impurity as impurity
 from model.impurity.logistic_impurity import LogisticImpurity
 
 
+'''
+A= np.array([[1,2],[3,4]])
+v = np.array([2,3])
+prod = A*v[:,np.newaxis]
+print("prod: ", prod)
+'''
+
 
 X, y = datasets.load_breast_cancer(return_X_y = True)
 features = range(2)
@@ -18,6 +25,10 @@ y = y[:set_size]
 
 model = LogisticImpurity()
 model.train(X, y, 20000, .5)
+
+
+
+
 
 '''
 X_set,y = datasets.load_breast_cancer(return_X_y = True)
