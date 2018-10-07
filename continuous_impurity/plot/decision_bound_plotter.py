@@ -3,9 +3,9 @@ import numpy as np
 def plot_contours(X, f, ax, step_size, **params):
     xx, yy = make_meshgrid(X[:,0], X[:,1], h = step_size)
     Xs = np.c_[xx.ravel(), yy.ravel()]
-    f_outs = np.zeros(Xs.shape[0])
-    for i in range(0, len(f_outs)):
-        f_outs[i] = f(Xs[i])
+    f_outs = f(Xs)#np.zeros(Xs.shape[0])
+    #for i in range(0, len(f_outs)):
+    #    f_outs[i] = f(Xs[i])
     f_outs = f_outs.reshape(xx.shape)
     out = ax.contourf(xx, yy, f_outs, **params)
     return out

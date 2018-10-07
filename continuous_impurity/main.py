@@ -6,57 +6,87 @@ import matplotlib.pyplot as plt
 import plot.decision_bound_plotter as bound_plotter
 import function.impurity as impurity
 from model.impurity.logistic_impurity import LogisticImpurity
+from model.impurity.logistic_impurity_tree import LogisticImpurityTree
+import toolbox.data_helper as data_helper
+from model.impurity.impurity_model import ImpurityModel
+
+#TODO: make a more general framework for treebased models using continuous impurity. I.e. make
+#a more modular class that can be extended and have some abstract functions implemented to give
+#the necessary functions for gradients, etc.
+
+X, y = datasets.load_iris(return_X_y = True)
+features = [2,3]
+set_size = X.shape[0]
+X = X[:set_size,features]
+y = y[:set_size]
+
+#When training impurity trees, ensure training params are good enough that
+#models won't have to stop training before making a good split (splitting when
+#one subset is empty or almost empty will cause the tree to terminate before
+#reaching a good depth)
+'''
+model = LogisticImpurityTree()
+model.train(X, y, 5, 10, 50000, .05)
+'''
+
+class LogisticModel:
+
+
+    def rand_init_params(self, X):
+        self.__theta = np.random.rand(X.shape[1]+1)*.001
+
+    def func(self, X):
+        X_affine = data_helper.affine_X(X)
+        left_probs = 1.0/(1.0+np.exp(-np.dot(X_affine, self.__theta)))
+        return np.asarray([left_probs, 1-left_probs]).T
+
+    def d_func(self, x, k, p, j):
+        x_affine = np.ones(x.shape[0]+1)
+        x_affine[:x.shape[0]] = x
+        outs = self.func(np.asarray([x]))[0]
+        left_d_func = x_affine[j]*outs[k]*(1-outs[k])
+        return left_d_func if k == 0 else -left_d_func
+
+    def step_params(self, step):
+        self.__theta += step[0]
+
+    def params_shape(self):
+        return (2, self.__theta.shape[0])
+
+model = ImpurityModel(LogisticModel())
+model.train(X,y,50000,.5)
+
+ax = plt.gca()
+bound_plotter.plot_contours(X, model.predict, ax, .005)
+colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
+plt.scatter(X[:,0], X[:,1], color = colors)
+plt.show()
+
+
+
 
 
 '''
-A= np.array([[1,2],[3,4]])
-v = np.array([2,3])
-prod = A*v[:,np.newaxis]
-print("prod: ", prod)
-'''
-
-
-X, y = datasets.load_breast_cancer(return_X_y = True)
-features = range(2)
+X, y = datasets.load_iris(return_X_y = True)
+features = [1,3]
 set_size = X.shape[0]
 X = X[:set_size,features]
 y = y[:set_size]
 
 
 model = LogisticImpurity()
-model.train(X, y, 20000, .5)
+model.train(X, y, 20000, .05)
 
-
-
-
-
-'''
-X_set,y = datasets.load_breast_cancer(return_X_y = True)
-features = range(2)
-X = np.ones((X_set.shape[0], len(features)+1))
-for i in range(0, len(features)):
-    X[:,i] = X_set[:,features[i]]
-
-def f(X, params):
-    right_probs = 1.0/(1+np.exp(-np.dot(X, params)))
-    left_probs = 1-right_probs
-    return np.asarray([left_probs, right_probs]).T
-
-def dataset_continuous_impurity(params):
-    return impurity.expected_gini(f(X, params), y)
-
-params = np.random.rand(X.shape[1])*.001
-params = general_gradient_descent.sgd_minimize(dataset_continuous_impurity, params, .1, 25000, .5)
 
 def plot_predictor(X):
-    assert(len(X.shape) == 1)
-    X_func = np.ones(X.shape[0]+1)
-    X_func[:X.shape[0]] = X
-    probs = f(X_func, params)
-    return np.argmax(probs)
+    out = np.zeros(X.shape[0])
+    predicts = model.predict(X)
+    out[np.where(predicts>.5)] = 1
+    return out
 
 ax = plt.gca()
-bound_plotter.plot_contours(X[:,[0,1]], plot_predictor, ax, .025)
-plt.scatter(X[:,0], X[:,1], color = ["blue" if y[i] == 0 else "red" for i in range(len(y))])
+bound_plotter.plot_contours(X, plot_predictor, ax, .025)
+colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
+plt.scatter(X[:,0], X[:,1], color = colors)
 plt.show()
 '''

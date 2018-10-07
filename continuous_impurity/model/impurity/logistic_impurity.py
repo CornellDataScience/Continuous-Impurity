@@ -27,10 +27,14 @@ class LogisticImpurity:
         return impurity.expected_gini(subset_probs, y)
 
     def predict(self, X):
-        assert(X.shape[1] == self.__theta.shape[0] or X.shape[1] == self.__theta.shape[0]+1)
+        #clean the single input vs. multi input vs. not-affined input handling up a lot
+        if len(X.shape) == 1:
+            X = np.array([X])
+        assert(X.shape[1] == self.__theta.shape[0] or X.shape[1] == self.__theta.shape[0]-1)
         if X.shape[1] != self.__theta.shape[0]:
             X = data_helper.affine_X(X)
-        return self.s0(np.dot(X, self.__theta))
+        out = self.__s(np.dot(X, self.__theta), 0)
+        return out[0] if X.shape[0] == 1 else out
 
 
     def train(self, X, y, steps, step_size):
@@ -38,42 +42,42 @@ class LogisticImpurity:
         self.__rand_init_theta(X.shape[1])
         unique_labels = np.unique(y)
         for iter in range(steps):
-            grad = self.gradient(X,y,unique_labels)
+            grad = self.__gradient(X,y,unique_labels)
             self.__theta -= step_size * grad
-            print("expected gini: ", self.expected_gini(X, y))
-            print("grad: ", grad)
-            print("------------------------------------------")
+            if iter%1000 == 0:
+                print("expected gini: ", self.expected_gini(X, y))
+                print("------------------------------------------")
 
     def __rand_init_theta(self, features):
         self.__theta = np.random.rand(features)*.001
 
-    def gradient(self, X, y, unique_labels):
+    def __gradient(self, X, y, unique_labels):
         out = np.zeros(self.__theta.shape)
         for k in range(0, 2):
-            s_k = self.s(np.dot(X, self.__theta), k)
-            ds_k = self.ds_dx(s_k, k)
-            u = self.u(s_k)
-            v = self.v(s_k, y, unique_labels)
-            du = self.du_dtheta(s_k, ds_k, k, X)
-            dv = self.dv_dtheta(s_k, ds_k, k, X, y, unique_labels)
+            s_k = self.__s(np.dot(X, self.__theta), k)
+            ds_k = self.__ds_dx(s_k, k)
+            u = self.__u(s_k)
+            v = self.__v(s_k, y, unique_labels)
+            du = self.__du_dtheta(s_k, ds_k, k, X)
+            dv = self.__dv_dtheta(s_k, ds_k, k, X, y, unique_labels)
             out += du*v + dv*u
         return -out/float(X.shape[0])
 
-    def u(self, s_outs):
+    def __u(self, s_outs):
         return 1.0/np.sum(s_outs)
 
-    def v(self, s_outs, y, unique_labels):
+    def __v(self, s_outs, y, unique_labels):
         out = 0
         for l in unique_labels:
             out += (np.sum(s_outs[np.where(y==l)]))**2
         return out
 
-    def du_dtheta(self, s_outs, ds_outs, k, X):
+    def __du_dtheta(self, s_outs, ds_outs, k, X):
         left_divisor = np.sum(s_outs)
         left = -1.0/(left_divisor*left_divisor)
         return left * np.sum(X*ds_outs[:,np.newaxis], axis = 0)
 
-    def dv_dtheta(self, s_outs, ds_outs, k, X, y, unique_labels):
+    def __dv_dtheta(self, s_outs, ds_outs, k, X, y, unique_labels):
         out = np.zeros(self.__theta.shape)
         for l in unique_labels:
             where_y_eq_l = np.where(y==l)
@@ -84,20 +88,10 @@ class LogisticImpurity:
             out += left * right
         return 2*out
 
-    def s(self, X, k):
-        return self.s0(X) if k == 0 else self.s1(X)
+    def __s(self, X, k):
+        s0 = 1.0/(1.0+np.exp(-X))
+        return s0 if k == 0 else 1-s0
 
-    def ds_dx(self, s_out, k):
-        return self.ds0_dx(s_out) if k == 0 else self.ds1_dx(s_out)
-
-    def s0(self, X):
-        return 1.0/(1.0+np.exp(-X))
-
-    def s1(self, X):
-        return 1-self.s0(X)
-
-    def ds0_dx(self, s0_out):
-        return s0_out*(1-s0_out)
-
-    def ds1_dx(self, s1_out):
-        return -self.ds0_dx(s1_out)
+    def __ds_dx(self, s_out, k):
+        ds0 = s_out*(1-s_out)
+        return ds0 if k == 0 else -ds0
