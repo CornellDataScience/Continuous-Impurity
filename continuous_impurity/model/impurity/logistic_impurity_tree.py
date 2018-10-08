@@ -24,6 +24,8 @@ class LogisticImpurityNode:
 
     #TODO: add min impurity to split
     def _train(self, X, y, depth, min_data_to_split, sgd_iters, sgd_step_size):
+        print("depth: ", depth)
+        print("subset size: ", X.shape[0])
         if depth <= 0 or len(y) < min_data_to_split:
             self.__set_leaf(y)
             return None

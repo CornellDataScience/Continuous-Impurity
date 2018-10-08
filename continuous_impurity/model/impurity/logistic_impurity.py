@@ -26,6 +26,15 @@ class LogisticImpurity:
         subset_probs = np.array([probs, 1-probs]).T
         return impurity.expected_gini(subset_probs, y)
 
+    def gini(self, X, y):
+        probs = self.predict(X)
+        lefts = y[np.where(probs<=.5)]
+        rights = y[np.where(probs>.5)]
+        print("lefts: ", lefts)
+        print("rights: ", rights)
+        return impurity.gini([lefts, rights])
+
+
     def predict(self, X):
         #clean the single input vs. multi input vs. not-affined input handling up a lot
         if len(X.shape) == 1:
@@ -45,7 +54,9 @@ class LogisticImpurity:
             grad = self.__gradient(X,y,unique_labels)
             self.__theta -= step_size * grad
             if iter%1000 == 0:
+                print("iter: ", iter)
                 print("expected gini: ", self.expected_gini(X, y))
+                print("actual gini: ", self.gini(X, y))
                 print("------------------------------------------")
 
     def __rand_init_theta(self, features):
@@ -56,11 +67,8 @@ class LogisticImpurity:
         for k in range(0, 2):
             s_k = self.__s(np.dot(X, self.__theta), k)
             ds_k = self.__ds_dx(s_k, k)
-            u = self.__u(s_k)
-            v = self.__v(s_k, y, unique_labels)
-            du = self.__du_dtheta(s_k, ds_k, k, X)
-            dv = self.__dv_dtheta(s_k, ds_k, k, X, y, unique_labels)
-            out += du*v + dv*u
+            out += self.__du_dtheta(s_k,ds_k,k,X)*self.__v(s_k,y,unique_labels) \
+                + self.__dv_dtheta(s_k, ds_k,k,X,y,unique_labels)*self.__u(s_k)
         return -out/float(X.shape[0])
 
     def __u(self, s_outs):
@@ -73,19 +81,13 @@ class LogisticImpurity:
         return out
 
     def __du_dtheta(self, s_outs, ds_outs, k, X):
-        left_divisor = np.sum(s_outs)
-        left = -1.0/(left_divisor*left_divisor)
-        return left * np.sum(X*ds_outs[:,np.newaxis], axis = 0)
+        return -np.sum(X*ds_outs[:,np.newaxis], axis = 0)/(np.square(np.sum(s_outs)))
 
     def __dv_dtheta(self, s_outs, ds_outs, k, X, y, unique_labels):
         out = np.zeros(self.__theta.shape)
         for l in unique_labels:
             where_y_eq_l = np.where(y==l)
-            left = np.sum(s_outs[where_y_eq_l])
-            X_eq_l = X[where_y_eq_l]
-            ds_eq_l = ds_outs[where_y_eq_l]
-            right = np.sum(X_eq_l*ds_eq_l[:,np.newaxis], axis = 0)
-            out += left * right
+            out += np.sum(s_outs[where_y_eq_l])*np.sum(X[where_y_eq_l]*(ds_outs[where_y_eq_l][:,np.newaxis]), axis = 0)
         return 2*out
 
     def __s(self, X, k):

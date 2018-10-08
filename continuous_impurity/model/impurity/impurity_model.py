@@ -5,23 +5,12 @@ import optimize.general_gradient_descent as general_gradient_descent
 from function.activation.sigmoid import Sigmoid
 
 class ImpurityModel:
-    '''
-    #model_func is a class that must have:
-    #paramaters (Variable that changes how func and d_func work)
-    #def step_params(step_size, gradient)
-    #def func(X): returns the model's output for X
-
-    def d_func(X, k): returns the model's gradient given X w.r.t it's params.
-    '''
     def __init__(self, model_func):
         self.__model_func = model_func
-
-
 
     def expected_gini(self, X, y):
         probs = self.predict(X)
         return impurity.expected_gini(probs, y)
-
 
     def predict(self, X):
         return self.__model_func.func(X)
@@ -31,7 +20,7 @@ class ImpurityModel:
         unique_labels = np.unique(y)
         for iter in range(steps):
             self.__model_func.step_params(-step_size*self.__gradient(X,y,unique_labels))
-            if iter%1 == 0:
+            if iter%10 == 0:
                 print("expected gini: ", self.expected_gini(X, y))
                 print("------------------------------------------")
 
@@ -64,6 +53,7 @@ class ImpurityModel:
 
     def __du(self, model_outs, X, k, p, j):
         left = -1.0/(np.sum(model_outs[:,k])**2)
+
         right = 0
         for i in range(model_outs.shape[0]):
             right += self.__model_func.d_func(X[i],k,p,j)

@@ -1,15 +1,13 @@
 import numpy as np
 
 def gini(groupings):
-    sum = 0
+    out = 0
     num_elems = 0
     for grouping in groupings:
-        _, counts = np.unique(grouping, return_counts = True).astype(np.float32)
-        fracs = counts/float(len(grouping))
-        sum += np.sum(np.square(fracs))
+        counts = np.unique(grouping, return_counts = True)[1].astype(np.float32)
+        out += len(grouping)*(1-np.sum(np.square(counts/float(len(grouping)))))
         num_elems += len(grouping)
-    sum /= float(num_elems)
-    return 1 - sum
+    return out/float(num_elems)
 
 def expected_gini(subset_assign_probs, y):
     labels = np.unique(y)
