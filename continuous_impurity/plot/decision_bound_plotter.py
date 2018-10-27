@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def plot_contours(X, f, ax, step_size, **params):
     xx, yy = make_meshgrid(X[:,0], X[:,1], h = step_size)
     Xs = np.c_[xx.ravel(), yy.ravel()]

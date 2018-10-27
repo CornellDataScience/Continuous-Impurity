@@ -10,7 +10,10 @@ from model.impurity.logistic_impurity_tree import LogisticImpurityTree
 import toolbox.data_helper as data_helper
 from sklearn.datasets import fetch_mldata
 from model.impurity.impurity_model import ImpurityModel
+from model.impurity.logistic_impurity_model2 import LogisticImpurityModel2
+from model.impurity.polynomial_kernel_logistic_impurity_model import PolynomialKernelLogisticImpurityModel
 
+#REMINDER: Use np.float_power instead of ** or np.power for fractional powers
 #TODO: make a more general framework for treebased models using continuous impurity. I.e. make
 #a more modular class that can be extended and have some abstract functions implemented to give
 #the necessary functions for gradients, etc.
@@ -19,8 +22,22 @@ from model.impurity.impurity_model import ImpurityModel
 #TODO: Add more node train termination parameters to impurity tree
 #TODO: Make a version of logistic trees that does not force being binary
 
-X,y = datasets.load_iris(return_X_y = True)
+
+X,y = datasets.load_breast_cancer(return_X_y = True)#load_iris(return_X_y = True)
 X = X.astype(np.float64)
+FEATURES = [0,1]
+X = X[:,FEATURES]
+print("x -: ",  np.average(X, axis = 0))
+X -= np.average(X, axis = 0)
+
+def change_basis(X):
+    #return X
+    return np.column_stack([X, X**2, X[:,0]*X[:,1]])
+
+y[np.where(y==2)] = 0
+#X -= np.mean(X[np.where(y==1)], axis = 0)
+#X/=np.max(np.abs(X))
+
 
 '''
 mnist = fetch_mldata('MNIST original')
@@ -36,14 +53,14 @@ PERMUTE_INDS = np.random.permutation(np.arange(0, X.shape[0]))
 
 TRAIN_INDS = PERMUTE_INDS[:NUM_TRAIN]
 TEST_INDS = PERMUTE_INDS[NUM_TRAIN:]
-X_train = X[TRAIN_INDS]
+X_train = change_basis(X[TRAIN_INDS])
 y_train = y[TRAIN_INDS]
-X_test = X[TEST_INDS]
+X_test = change_basis(X[TEST_INDS])
 y_test = y[TEST_INDS]
 
 plt.show()
-model = LogisticImpurityTree()
-model.train(X_train, y_train, 20, 5, 400000, .001)
+model = PolynomialKernelLogisticImpurityModel(X_train.shape, 0, 1)#LogisticImpurityModel2(X_train.shape)#
+model.train(X_train, y_train, 50000, .002, print_progress_iters = 1000)
 
 
 predictions = model.predict(X_test)
@@ -51,7 +68,21 @@ num_right = np.sum(predictions==y_test)
 print("Accuracy: ", float(100.0 * num_right/float(y_test.shape[0])))
 
 
+def pred_func(X):
+    print("x shape; ", X.shape)
+    #print("outs: ", np.argmax(model.predict(X), axis = 1))
+    #return np.argmax(model.predict(X), axis = 1)
+    X = change_basis(X)
+    out = np.zeros(X.shape[0])
+    preds = model.predict(X)
+    out[np.where(preds[:,0] > 0.5)] = 1
+    return out
 
+ax = plt.gca()
+bound_plotter.plot_contours(X, pred_func, ax, .05)
+colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
+plt.scatter(X[:,0], X[:,1], color = colors)
+plt.show()
 
 
 
@@ -75,47 +106,6 @@ model.train(X, y, 5, 10, 50000, .05)
 
 ax = plt.gca()
 bound_plotter.plot_contours(X, model.predict, ax, .005)
-colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
-plt.scatter(X[:,0], X[:,1], color = colors)
-plt.show()
-'''
-'''
-class LogisticModel:
-
-
-    def rand_init_params(self, X):
-        self.__theta = np.random.rand(X.shape[1]+1)*.001
-
-    def func(self, X):
-        X_affine = data_helper.affine_X(X)
-        left_probs = 1.0/(1.0+np.exp(-np.dot(X_affine, self.__theta)))
-        return np.asarray([left_probs, 1-left_probs]).T
-
-    def d_func(self, x, k, p, j):
-        x_affine = np.ones(x.shape[0]+1)
-        x_affine[:x.shape[0]] = x
-        outs = self.func(np.asarray([x]))[0]
-        left_d_func = x_affine[j]*outs[k]*(1-outs[k])
-        return left_d_func if k == 0 else -left_d_func
-
-    def step_params(self, step):
-        self.__theta += step[0]
-
-    def params_shape(self):
-        return (2, self.__theta.shape[0])
-
-model = ImpurityModel(LogisticModel())
-model.train(X,y,50,.5)
-
-def plot_predict(X):
-    probs = model.predict(X)
-    out = np.argmax(probs, axis = 1)
-    print("probs: ", probs.shape)
-    print("out shape: ", out.shape)
-    return out
-
-ax = plt.gca()
-bound_plotter.plot_contours(X, plot_predict, ax, .005)
 colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
 plt.scatter(X[:,0], X[:,1], color = colors)
 plt.show()

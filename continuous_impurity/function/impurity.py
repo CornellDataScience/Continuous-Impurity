@@ -17,5 +17,7 @@ def expected_gini(subset_assign_probs, y):
         for label in labels:
             kth_subset_probs_with_label = subset_assign_probs[np.where(y == label), k]
             k_sum += np.sum(kth_subset_probs_with_label)**2
-        out -= k_sum/(y.shape[0] * np.sum(subset_assign_probs[:,k]))
+        #print("k_sum: ", k_sum)
+        if k_sum != 0:
+            out -= k_sum/(y.shape[0] * np.sum(subset_assign_probs[:,k]))
     return out
