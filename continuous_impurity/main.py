@@ -5,14 +5,11 @@ from functools import partial
 import matplotlib.pyplot as plt
 import plot.decision_bound_plotter as bound_plotter
 import function.impurity as impurity
-from model.impurity.logistic_impurity import LogisticImpurity
-from model.impurity.logistic_impurity_tree import LogisticImpurityTree
 import toolbox.data_helper as data_helper
 from sklearn.datasets import fetch_mldata
-from model.impurity.impurity_model import ImpurityModel
-from model.impurity.logistic_impurity_model2 import LogisticImpurityModel2
-from model.impurity.polynomial_kernel_logistic_impurity_model import PolynomialKernelLogisticImpurityModel
-
+from model.impurity.logistic_impurity_model import LogisticImpurityModel
+from model.impurity.matrix_activation_logistic_impurity import MatrixActivationLogisticImpurity
+from function.activation.sigmoid import Sigmoid
 #REMINDER: Use np.float_power instead of ** or np.power for fractional powers
 #TODO: make a more general framework for treebased models using continuous impurity. I.e. make
 #a more modular class that can be extended and have some abstract functions implemented to give
@@ -31,8 +28,8 @@ print("x -: ",  np.average(X, axis = 0))
 X -= np.average(X, axis = 0)
 
 def change_basis(X):
-    #return X
-    return np.column_stack([X, X**2, X[:,0]*X[:,1]])
+    return X
+    #return np.column_stack([X, X**2, X[:,0]*X[:,1]])
 
 y[np.where(y==2)] = 0
 #X -= np.mean(X[np.where(y==1)], axis = 0)
@@ -59,8 +56,8 @@ X_test = change_basis(X[TEST_INDS])
 y_test = y[TEST_INDS]
 
 plt.show()
-model = PolynomialKernelLogisticImpurityModel(X_train.shape, 0, 1)#LogisticImpurityModel2(X_train.shape)#
-model.train(X_train, y_train, 50000, .002, print_progress_iters = 1000)
+model = MatrixActivationLogisticImpurity(Sigmoid(), X_train.shape[1], 5)#LogisticImpurityModel(X_train.shape[1])#
+model.train(X_train, y_train, 50000, [2,2], print_progress_iters = 50)
 
 
 predictions = model.predict(X_test)

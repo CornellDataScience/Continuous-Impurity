@@ -2,12 +2,14 @@ from abc import ABC, abstractmethod
 import numpy as np
 import function.impurity as impurity
 from time import sleep
-class ImpurityModel2(ABC):
+class ImpurityModel(ABC):
 
-    def __init__(self, num_subgroups, theta_shape):
-        self._theta = np.random.random(theta_shape)-.5
-        self._theta = self._theta.astype(np.float64)*.00001
+    def __init__(self, num_subgroups, params_shapes):
+        self.__params = []
+        for i in range(len(params_shapes)):
+            self.__params.append(0.00001*(np.random.random(params_shapes[i])-.5).astype(np.float64))
         self.__num_subgroups = num_subgroups
+
     '''returns a matrix, A, with shape (X.shape[0], self.__num_subgroups)
     where A[i,j] is the probability of X[i] being assigned to subset j.'''
     @abstractmethod
@@ -15,47 +17,54 @@ class ImpurityModel2(ABC):
         pass
 
     '''
-    returns a matrix A with shape (X.shape[0], self.__num_subgroups) + theta.shape
-    s.t. A[i,k] = grad w.r.t. theta of p(k|X[i])
-    passes all arguments, even if the implementation does not require them.
+    returns a list, L, of numpy arrays such that L[n] is the gradient of the model,
+    A, w.r.t. the nth paramater (vector, matrix, etc.), where A is of the shape:
+    (self.__num_subgroups, X.shape[0]) + self.__params[n].shape
     '''
     @abstractmethod
-    def _d_predict_d_theta(self, X, predicts):
+    def _d_predict_d_params(self, X, predicts):
         pass
 
-    def train(self, X, y, iters, step_size, print_progress_iters = 1000):
+    def _get_params(self):
+        return self.__params
+
+    def train(self, X, y, iters, step_sizes, print_progress_iters = 1000):
         unique_labels = np.unique(y)
         for iter in range(iters):
             grad = self.__gradient(X, y, unique_labels)
-            self._theta -= step_size*grad
+            for i in range(len(grad)):
+                self.__params[i] -= step_sizes[i]*grad[i]
             if iter%print_progress_iters == 0:
                 print("iter: ", iter)
                 print("expected gini: ", self.__expected_gini(X,y))
-                print("grad step: ", grad_step)
-                print("theta: ", self._theta)
-                print("theta - grad step: ", self._theta - grad_step)
+                print("params: ", self.__params)
+                print("grad: ", grad)
                 print("---------------------------------------------")
+
+
+
+    def __gradient(self, X, y, unique_labels):
+        out = [np.zeros(param.shape, dtype = np.float64) for param in self.__params]
+        predicts = self.predict(X)
+        d_params = self._d_predict_d_params(X, predicts)
+        u = self.__u(predicts)
+        du = self.__du_dthetas(predicts, d_params)
+        v = self.__v(predicts, y, unique_labels)
+        dv = self.__dv_dthetas(predicts, d_params, y, unique_labels)
+        for i in range(len(out)):
+            for k in range(self.__num_subgroups):
+                u_k = u[k]
+                du_k = du[i][k]
+                v_k = v[k]
+                dv_k = dv[i][k]
+                out[i] += v_k*du_k + u_k*dv_k
+            out[i] /= -float(X.shape[0])
+
+        return out
 
 
     def __expected_gini(self, X, y):
         return impurity.expected_gini(self.predict(X), y)
-
-    def __gradient(self, X, y, unique_labels):
-        out = np.zeros(self._theta.shape, dtype = np.float64)
-        predicts = self.predict(X)
-        d_predicts = self._d_predict_d_theta(X, predicts)
-        u = self.__u(predicts)
-        du = self.__du_dtheta(predicts, d_predicts)
-        v = self.__v(predicts, y, unique_labels)
-        dv = self.__dv_dtheta(predicts, d_predicts, y, unique_labels)
-
-        for k in range(self.__num_subgroups):
-            u_k = u[k]
-            du_k = du[k]
-            v_k = v[k]
-            dv_k = dv[k]
-            out += v_k*du_k + u_k*dv_k
-        return -out/float(X.shape[0])
 
     '''
     expects d_predicts to have shape (predicts.shape) + (theta.shape),
@@ -65,13 +74,29 @@ class ImpurityModel2(ABC):
     outputs a matrix dU with shape (predicts.shape[1],) + (d_predicts.shape[2], d_predicts.shape[3])
     s.t. dU[k] is grad w.r.t. theta of u_k
     '''
-    def __du_dtheta(self, predicts, d_predicts):
-        out = np.full(d_predicts.shape[1:], -1.0, dtype = np.float64)
-        out *= np.sum(d_predicts, axis = 0)
+    def __du_dthetas(self, predicts, d_predicts):
+        out = []
+        for i in range(len(d_predicts)):
+            out.append(np.full(d_predicts[i].shape[1:], -1.0, dtype = np.float64))
+
+        '''
         pred_sums = np.sum(predicts, axis = 0)
-        #done for numerical stability (divide by 0)
-        out[np.where(pred_sums == 0)] = 0
-        out[np.where(pred_sums != 0)] /= np.square(pred_sums[np.where(pred_sums != 0)])[:,np.newaxis]
+        print("pred_sums: ", pred_sums)
+        print("predicts: ", predicts)
+
+        for i in range(len(out)):
+            out[i] *= np.sum(d_predicts[i], axis = 0)
+            #done for numerical stability (divide by 0)
+            out[i][np.where(pred_sums == 0)] = 0
+            out[i][np.where(pred_sums != 0)] /= np.square(pred_sums[np.where(pred_sums != 0)])[:,np.newaxis]
+        '''
+
+        sqrd_pred_sums = np.square(np.sum(predicts, axis = 0))
+        for i in range(len(out)):
+            for j in range(sqrd_pred_sums.shape[0]):
+                if sqrd_pred_sums[j] != 0:
+                    out[i] *= np.sum(d_predicts[i], axis = 0)/sqrd_pred_sums[j]
+
         return out
 
     '''
@@ -82,12 +107,27 @@ class ImpurityModel2(ABC):
     outputs a matrix dV with shape (predicts.shape[1],) + (d_predicts.shape[2], d_predicts.shape[3])
     s.t. dV[k] is grad w.r.t. theta of u_k
     '''
-    def __dv_dtheta(self, predicts, d_predicts, y, unique_labels):
-        out = np.zeros(d_predicts.shape[1:], dtype = np.float64)
+    def __dv_dthetas(self, predicts, d_predicts, y, unique_labels):
+        out = []
+        for i in range(len(d_predicts)):
+            out.append(np.zeros(d_predicts[i].shape[1:], dtype = np.float64))
+
         for l in unique_labels:
             where_y_eq_l = np.where(y==l)
-            out += np.sum(d_predicts[where_y_eq_l], axis = 0)*(np.sum(predicts[where_y_eq_l], axis = 0))[:,np.newaxis]
-        return 2*out
+            for i in range(len(d_predicts)):
+                d_predicts_lsum = np.sum(d_predicts[i][where_y_eq_l], axis = 0)
+                predicts_lsum = np.sum(predicts[where_y_eq_l], axis = 0)
+                #adds new axises to predicts_lsum so that predicts_lsum*d_predicts
+                #doesn't break, and also allows the result, B, to be:
+                #B[i] = predicts_lsum[i]*d_predicts_lsum[i]
+                while len(predicts_lsum.shape) != len(d_predicts_lsum.shape):
+                    predicts_lsum = predicts_lsum = np.expand_dims(predicts_lsum, axis = len(predicts_lsum.shape))
+                out[i] += d_predicts_lsum * predicts_lsum
+
+        for i in range(len(out)):
+            out[i] *= 2
+
+        return out
 
     def __u(self, predicts):
         sums = np.sum(predicts, axis = 0)
