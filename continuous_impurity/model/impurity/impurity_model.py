@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 import numpy as np
 import function.impurity as impurity
 from time import sleep
+import timeit
+
 class ImpurityModel(ABC):
 
     def __init__(self, num_subgroups, params_shapes):
@@ -45,12 +47,38 @@ class ImpurityModel(ABC):
 
     def __gradient(self, X, y, unique_labels):
         out = [np.zeros(param.shape, dtype = np.float64) for param in self.__params]
+
+        times = []
+
+        start_time = timeit.default_timer()
         predicts = self.predict(X)
+        times.append(timeit.default_timer() - start_time)
+
+
+        start_time = timeit.default_timer()
         d_params = self._d_predict_d_params(X, predicts)
+        times.append(timeit.default_timer() - start_time)
+
+        start_time = timeit.default_timer()
         u = self.__u(predicts)
+        times.append(timeit.default_timer() - start_time)
+
+        start_time = timeit.default_timer()
         du = self.__du_dthetas(predicts, d_params)
+        times.append(timeit.default_timer() - start_time)
+
+        start_time = timeit.default_timer()
         v = self.__v(predicts, y, unique_labels)
+        times.append(timeit.default_timer() - start_time)
+
+        start_time = timeit.default_timer()
         dv = self.__dv_dthetas(predicts, d_params, y, unique_labels)
+        times.append(timeit.default_timer() - start_time)
+
+        times = np.asarray(times)
+        #print("times: ", times)
+        #print("relative times: ", times/np.sum(times))
+
         for i in range(len(out)):
             for k in range(self.__num_subgroups):
                 u_k = u[k]
