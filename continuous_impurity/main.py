@@ -57,7 +57,7 @@ y_test = y[TEST_INDS]
 
 plt.show()
 model = MatrixActivationLogisticImpurity(Sigmoid(), X_train.shape[1], 5)#LogisticImpurityModel(X_train.shape[1])#
-model.train(X_train, y_train, 50000, [2,2], print_progress_iters = 50)
+model.train(X_train, y_train, 200000, [.01, .1], print_progress_iters = 1000)
 
 
 predictions = model.predict(X_test)

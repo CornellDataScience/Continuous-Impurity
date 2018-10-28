@@ -45,7 +45,6 @@ class MatrixActivationLogisticImpurity(ImpurityModel):
 
 
         start_time = timeit.default_timer()
-        #most slow
         mat_act_derivs = self.__get_mat_act_transform().param_grad(X_affine, transform_X_affine)
         times.append(timeit.default_timer()-start_time)
 
@@ -54,13 +53,12 @@ class MatrixActivationLogisticImpurity(ImpurityModel):
         grad_predict0_params1 = np.zeros((X.shape[0],) + self._get_params()[1].shape, dtype = np.float64)
 
         start_time = timeit.default_timer()
-        #second slowest
-        for i in range(grad_predict0_params1.shape[0]):
-            for j in range(grad_predict0_params1.shape[1]):
-                grad_predict0_params1[i,j] = sigmoid_deriv[i]*\
-                    self._get_params()[0][j]*\
-                    mat_act_derivs[i,j,j]
-        times.append(timeit.default_timer()-start_time)
+        #slowest
+
+        for j in range(grad_predict0_params1.shape[1]):
+            grad_predict0_params1[:,j] = sigmoid_deriv[:,np.newaxis]*\
+                self._get_params()[0][j]*\
+                mat_act_derivs[:,j,j]
 
 
         start_time = timeit.default_timer()

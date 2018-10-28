@@ -31,17 +31,6 @@ class MatrixActivationTransform(ParameterizedTransform):
     def param_grad(self, X, transform_outs):
         grad = np.zeros((X.shape[0], self.params.shape[0]) + self.params.shape, dtype = np.float64)
         act_derivs = self.__act_func.derivative_wrt_activation(transform_outs)
-        #print("act_derivs: ", act_derivs.shape)
-        #print("grad: ", grad.shape)
-
         for j in range(grad.shape[1]):
             grad[:,j,j] = X*((act_derivs[:,j])[:,np.newaxis])
-
-        '''
-        #WORKS, but slow
-        for i in range(grad.shape[0]):
-            for j in range(grad.shape[1]):
-                grad[i,j,j] = self.__act_func.derivative_wrt_activation(np.dot(X[i], self.params[j]))*X[i]
-        '''
-
         return grad
