@@ -15,11 +15,9 @@ def sigmoid(x):
     out[where_greater_0] = out_greater_0
     out[where_less_0] = out_less_0
     return out
-    '''
-    if x >= 0:
-        z = np.exp(-x)
-        return 1.0 / (1.0 + z)
-    else:
-        z = np.exp(x)
-        return z / (1.0 + z)
-    '''
+
+'''
+represents tanh() in terms of the sigmoid
+'''
+def tanh(x):
+    return 2.0*sigmoid(2.0*x) - 1.0

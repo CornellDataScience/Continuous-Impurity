@@ -4,6 +4,6 @@ class Sigmoid(ActivationFunction):
 
     def act(self, X):
         return stable_func.sigmoid(X)
-    
+
     def derivative_wrt_activation(self, act_outs):
         return act_outs*(1-act_outs)

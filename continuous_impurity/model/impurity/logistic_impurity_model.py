@@ -6,7 +6,7 @@ import function.stable_func as stable_func
 class LogisticImpurityModel(ImpurityModel):
 
     def __init__(self, x_length):
-        ImpurityModel.__init__(self, 2, [(x_length+1)])
+        ImpurityModel.__init__(self, 2, [0.00001*(np.random.random(x_length+1)-.5).astype(np.float64)])
 
 
 

@@ -6,10 +6,8 @@ import timeit
 
 class ImpurityModel(ABC):
 
-    def __init__(self, num_subgroups, params_shapes):
-        self.__params = []
-        for i in range(len(params_shapes)):
-            self.__params.append(0.00001*(np.random.random(params_shapes[i])-.5).astype(np.float64))
+    def __init__(self, num_subgroups, params):
+        self.__params = params
         self.__num_subgroups = num_subgroups
 
     '''returns a matrix, A, with shape (X.shape[0], self.__num_subgroups)
@@ -39,6 +37,7 @@ class ImpurityModel(ABC):
             if iter%print_progress_iters == 0:
                 print("iter: ", iter)
                 print("expected gini: ", self.__expected_gini(X,y))
+                print("GINI: ", self.__gini(X,y))
                 print("params: ", self.__params)
                 print("grad: ", grad)
                 print("---------------------------------------------")
@@ -93,6 +92,13 @@ class ImpurityModel(ABC):
 
     def __expected_gini(self, X, y):
         return impurity.expected_gini(self.predict(X), y)
+
+    def __gini(self, X, y):
+        predicts = self.predict(X)
+        groups = np.argmax(predicts, axis = 1)
+        left = y[np.where(groups == 0)]
+        right = y[np.where(groups == 1)]
+        return impurity.gini([left, right])
 
     '''
     expects d_predicts to have shape (predicts.shape) + (theta.shape),
