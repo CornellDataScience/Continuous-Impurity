@@ -64,8 +64,8 @@ plt.show()
 PROBLEM: using T(Ax) may not be nonlinearenough to represent any interesting transformation. Even though
 the idea is to nest them using a tree-like structure, often makes all the axises look practically equal (points generally lie on y = x plot)
 '''
-model = MatrixActivationLogisticImpurity(TanH(), X_train.shape[1], 5)#LogisticImpurityModel(X_train.shape[1])#
-model.train(X_train, y_train, 100000, [1,1], print_progress_iters = 1000)
+model = MatrixActivationLogisticImpurity(TanH(), X_train.shape[1], 4)#LogisticImpurityModel(X_train.shape[1])#
+model.train(X_train, y_train, 10000, [1,1], print_progress_iters = 1000)
 
 
 predictions = model.predict(X_test)
@@ -84,7 +84,7 @@ def pred_func(X):
     return out
 
 ax = plt.gca()
-bound_plotter.plot_contours(X, pred_func, ax, .05)
+bound_plotter.plot_contours(X, pred_func, ax, .025)
 colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
 plt.scatter(X[:,0], X[:,1], color = colors)
 plt.show()

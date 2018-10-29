@@ -6,7 +6,16 @@ from model.parameterized_transform.matrix_activation_transform import MatrixActi
 import timeit
 
 class MatrixActivationLogisticImpurity(ImpurityModel):
+    '''Used to prevent the bias of transformations from becoming
+    large enough such that it very heavily skews all transformations
+    to one value. (i.e. if b is large enough in f(x)=1/(1+e^(-wx+b))),
+    f will always evaluate to something close to 0 or 1 depending on the
+    sign of b. Shrinks the gradient of the transformation biases by
+    this factor in order to allow the directional components (w in f)
+    from being overtaken by b.
+    '''
     TRANSFORM_BIAS_GRADIENT_DAMPEN_FACTOR = 0.00001
+
     def __init__(self, act_func, x_length, transform_x_length):
         self.__act_func = act_func
         mat_shape = (transform_x_length, x_length+1)
