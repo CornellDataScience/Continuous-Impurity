@@ -10,7 +10,7 @@ class MatrixActivationLogisticImpurity(ImpurityModel):
     def __init__(self, act_func, x_length, transform_x_length):
         self.__act_func = act_func
         mat_shape = (transform_x_length, x_length+1)
-        param0 = 0.00001*(np.random.random(x_length+1)-.5).astype(np.float64)
+        param0 = 0.00001*(np.random.random(transform_x_length+1)-.5).astype(np.float64)
         param1 = 0.00001*(np.random.random(mat_shape)-.5).astype(np.float64)
         for i in range(x_length):
             param1[i,i] = 1

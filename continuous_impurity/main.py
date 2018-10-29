@@ -22,7 +22,7 @@ from function.activation.identity import Identity
 #TODO: Make a version of logistic trees that does not force being binary
 
 
-X,y = datasets.load_iris(return_X_y = True)#load_iris(return_X_y = True)
+X,y = datasets.load_breast_cancer(return_X_y = True)#datasets.load_iris(return_X_y = True)
 X = X.astype(np.float64)
 FEATURES = [0,1]
 X = X[:,FEATURES]
@@ -64,7 +64,7 @@ plt.show()
 PROBLEM: using T(Ax) may not be nonlinearenough to represent any interesting transformation. Even though
 the idea is to nest them using a tree-like structure, often makes all the axises look practically equal (points generally lie on y = x plot)
 '''
-model = MatrixActivationLogisticImpurity(TanH(), X_train.shape[1], 2)#LogisticImpurityModel(X_train.shape[1])#
+model = MatrixActivationLogisticImpurity(TanH(), X_train.shape[1], 5)#LogisticImpurityModel(X_train.shape[1])#
 model.train(X_train, y_train, 100000, [1,1], print_progress_iters = 1000)
 
 
