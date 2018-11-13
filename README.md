@@ -35,7 +35,7 @@ A beneficial trait of models trained with expected GINI is that they can be used
 ![Continuous Decision Tree 2](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Continuous%20Imuprity%20Decision%20Tree%202.png?raw=true)
 
 *(Note the non-jagged decision boundaries that a normal decision tree is forced to have)
-
+---------------------------------------------------------------------------------------------------------------
 
 Nonlinear Pretransformation Logistic Regression-Style p(k|x) (t(x) is a non-linear transformation of x created by applying a non-linear activation function, a, to each element of the product of Ax, where A is a matrix of transformation parameters):
 
@@ -48,5 +48,6 @@ Where x has a 1 appended to the end to allow for a transformation bias, and a 1 
 
 Using this model as a split function in a greedily trained decision tree often proves finnicky, as its cost is not globally convex, so optimal convergence is not guaranteed. If a node's model does not converge (usually this means that the model classifies all, or almost all, points as belonging to one subset), then the node is forced to become a leaf, as it would have one child through which no data flows during training, and another through which all data flows during training, effectively making that child identically trained to itself. In such cases, the subtree is forced to terminate training prematurely, leading to a bad fit.
 
+---------------------------------------------------------------------------------------------------------------
 
 In progress: Using gradient descent to find globally optimal decision trees by instead minimizing the expected GINI impurity of the leaves of the decision tree. Hopefully this will fix issues with using the Nonlinear Pretransformation Logistic Regression-Style p(k|x) as the split function for a greedily-trained decision tree.
