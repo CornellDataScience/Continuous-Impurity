@@ -28,12 +28,13 @@ Results:
 ![Logistic 1](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Continuous%20impurity%20first%20working%20result.png?raw=true)
 
 
-A beneficial trait of models trained with expected GINI is that they can be used as the "split" model of decision trees, allowing more expressive decision boundaries than what was previously possible. Some examples of using the Logistic Regression-style p(k|x) as the split function for a decision tree (note the non-jagged decision boundaries that a normal decision tree is forced to have):
+A beneficial trait of models trained with expected GINI is that they can be used as the "split" model of decision trees, allowing more expressive decision boundaries than what was previously possible. Some examples of using the Logistic Regression-style p(k|x) as the split function for 2-depth decision trees:
 
 ![Continuous Decision Tree 1](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Continuous%20Imuprity%20Decision%20Tree.png?raw=true)
 
 ![Continuous Decision Tree 2](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Continuous%20Imuprity%20Decision%20Tree%202.png?raw=true)
 
+(Note the non-jagged decision boundaries that a normal decision tree is forced to have)
 
 
 Nonlinear Pretransformation Logistic Regression-Style p(k|x) (t(x) is a non-linear transformation of x created by applying a non-linear activation function, a, to each element of the product of Ax, where A is a matrix of transformation parameters):
