@@ -1,5 +1,5 @@
 # Continuous-Impurity
-For defining and testing a continuous impurity cost
+Goal: To define a continuous analogue to an impurity metric so that decision trees can be trained with calculus-trained split-planes that are not forced to be parallel to an axis.
 
 GINI Impurity:
 
