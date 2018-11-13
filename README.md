@@ -33,8 +33,8 @@ Results:
 
 A beneficial trait of models trained with expected GINI is that they can be used as the "split" model of decision trees, allowing more expressive decision boundaries than what was previously possible. Some examples of using the Logistic Regression-style p(k|x) as the split function for a decision tree:
 
-[Continuous Decision Tree 1](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Continuous%20Imuprity%20Decision%20Tree.png?raw=true)
+![Continuous Decision Tree 1](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Continuous%20Imuprity%20Decision%20Tree.png?raw=true)
 
-[Continuous Decision Tree 2](https://raw.githubusercontent.com/CornellDataScience/Continuous-Impurity/master/Continuous%20Imuprity%20Decision%20Tree.png)
+![Continuous Decision Tree 2](https://raw.githubusercontent.com/CornellDataScience/Continuous-Impurity/master/Continuous%20Imuprity%20Decision%20Tree.png)
 
 
