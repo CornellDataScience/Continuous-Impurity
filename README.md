@@ -45,10 +45,16 @@ A beneficial trait of models trained with expected GINI is that they can be used
 Where x has a 1 appended to the end to allow for a transformation bias, and a 1 is prepended to the output of t(x) to allow for a classification bias.
 
 
-With a = tanh, A having 4 rows: 
+With a = tanh, A with 4 rows: 
 
 
 ![Nonlinear Pretransform 1](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Neural-network-style%20pretransform%20continuous%20impurity.png?raw=true)
+
+
+With a = tanh, A with 6 rows:
+
+
+![Nonlinear Pretransform 2](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Neural-network-style%20pretransform%20continuous%20impurity%202.png?raw=true)
 
 
 Using this model as a split function in a greedily trained decision tree often proves finnicky, as its cost is not globally convex, so optimal convergence is not guaranteed. If a node's model does not converge (usually this means that the model classifies all, or almost all, points as belonging to one subset), then the node is forced to become a leaf, as it would have one child through which no data flows during training, and another through which all data flows during training, effectively making that child identically trained to itself. In such cases, the subtree is forced to terminate training prematurely, leading to a bad fit.
