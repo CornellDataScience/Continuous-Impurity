@@ -35,6 +35,6 @@ A beneficial trait of models trained with expected GINI is that they can be used
 
 ![Continuous Decision Tree 1](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Continuous%20Imuprity%20Decision%20Tree.png?raw=true)
 
-![Continuous Decision Tree 2](https://raw.githubusercontent.com/CornellDataScience/Continuous-Impurity/master/Continuous%20Imuprity%20Decision%20Tree.png)
+![Continuous Decision Tree 2](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Continuous%20Imuprity%20Decision%20Tree%202.png?raw=true)
 
 
