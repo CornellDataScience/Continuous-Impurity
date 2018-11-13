@@ -51,7 +51,7 @@ Using this model as a split function in a greedily trained decision tree often p
 
 ---------------------------------------------------------------------------------------------------------------
 
-In progress: **Globally Optimal, Non-Greedily Trained Decision Trees with Arbitrary Split Function**
+**In progress: Globally Optimal, Non-Greedily Trained Decision Trees with Arbitrary Split Function**
 
 
 Globally optimal decision trees should be able to be found by instead minimizing the expected GINI impurity of the leaves of the decision tree. Hopefully this will fix issues with using the Nonlinear Pretransformation Logistic Regression-Style p(k|x) as the split function for a greedily-trained decision tree. This is accomplished by the following definition of p(k|x), where p(k|x) is instead the probability of x *passing through* node k as it travels down the tree. Let l(k) be whether node k is a leaf, D(k) be the depth of node k, k' represent the parent node of k, and f_k(x) be the probability split function node N contains. Then:
