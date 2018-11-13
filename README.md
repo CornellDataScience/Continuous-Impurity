@@ -9,7 +9,7 @@ A continuous variant was determined by taking it's expectation -- considering th
 <a href="https://www.codecogs.com/eqnedit.php?latex=E(G)&space;=&space;1&space;-&space;\sum_{k}&space;\frac&space;{\sum_&space;{l}&space;(\sum_{i|y_i&space;=&space;l}&space;p(k|X_i))^2}&space;{|X|\sum_{i}&space;p(k|X_i)}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?E(G)&space;=&space;1&space;-&space;\sum_{k}&space;\frac&space;{\sum_&space;{l}&space;(\sum_{i|y_i&space;=&space;l}&space;p(k|X_i))^2}&space;{|X|\sum_{i}&space;p(k|X_i)}" title="E(G) = 1 - \sum_{k} \frac {\sum_ {l} (\sum_{i|y_i = l} p(k|X_i))^2} {|X|\sum_{i} p(k|X_i)}" /></a>
 
 
-For use in caculus-optimized models, the gradient of the expected GINI impurity with respect the gradient of the model, allowing for an arbitrary model (p(k|x)) to be used by simply replacing the definition of p(k|x) and its gradient/s, must first be calculated:
+For use in caculus-optimized models, the gradient of the expected GINI impurity with respect the parameters of the model, allowing for an arbitrary model (p(k|x)) to be used by simply replacing the definition of p(k|x) and its gradient/s with respect to its parameters, must first be calculated:
 
 
 
