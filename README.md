@@ -44,6 +44,10 @@ A beneficial trait of models trained with expected GINI is that they can be used
 
 Where x has a 1 appended to the end to allow for a transformation bias, and a 1 is prepended to the output of t(x) to allow for a classification bias.
 
+
+With a = tanh, A having 4 rows: 
+
+
 ![Nonlinear Pretransform 1](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Neural-network-style%20pretransform%20continuous%20impurity.png?raw=true)
 
 
