@@ -60,7 +60,7 @@ With a = tanh, A with 6 rows:
 Using this model as a split function in a greedily trained decision tree often proves finnicky, as its cost is not globally convex, so optimal convergence is not guaranteed. If a node's model does not converge (usually this means that the model classifies all, or almost all, points as belonging to one subset), then the node is forced to become a leaf, as it would have one child through which no data flows during training, and another through which all data flows during training, effectively making that child identically trained to itself. In such cases, the subtree is forced to terminate training prematurely, leading to a bad fit.
 
 ---------------------------------------------------------------------------------------------------------------
-
+**TODO: ACCIDENTALLY DEFINED THIS WRONG. REWRITE WITH CORRECTED REPLACEMENT**
 **In progress: Globally Optimal, Non-Greedily Trained Decision Trees with Arbitrary Split Function**
 
 
