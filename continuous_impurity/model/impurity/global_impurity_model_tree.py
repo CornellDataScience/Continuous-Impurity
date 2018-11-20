@@ -1,10 +1,16 @@
 import numpy as np
 from abc import ABC, abstractmethod
 import function.impurity as impurity
+import timeit
 #TODO: Implement this with lots of for loops for simplicity :(
 #TODO: Prune tree after training in order to prevent arbitray split planes when
 #a node desn'trequire more children for further separation, but is forced to train
 #them anyway
+
+#TODO: Fix potential vanishing gradient problem (switch to log space)
+
+#TODO: Modify gradients and model node to allow a list of parameters (or dictionary...
+#prob a little easier, can still iterate over the values)
 
 #TODO: Prune tree after training to eliminate nodes that have 0 training data
 #fall into them.
@@ -14,6 +20,8 @@ import function.impurity as impurity
 
 #For now: Implementing this in such a way that it is easy to convert it into
 #abstract class, but has implemented the functions in this class
+
+
 class GlobalImpurityModelTree:
 
     def __init__(self, head):
@@ -63,26 +71,50 @@ class GlobalImpurityModelTree:
         return self.__leaf_labels[leaf_prob_maxes]
 
 
-
     def _calc_gradient(self, q, X, y, unique_labels, leaves):
         out = np.zeros(q._model._params.shape, dtype = q._model._params.dtype)
+
         for k in leaves:
             #otherwise this gradient term would be zero. If causing problems,
             #should be able to remove this check since the gradient of root
             #is 0
             if k._is_super_parent(q):
-                p_k = self._p_X(k, X)
-                grad_p_k = self._grad_p_X(q, k, X)
+                times = []
+                start_time = timeit.default_timer()
+                p_k = self._p(k, X)
+                times.append(timeit.default_timer()-start_time)
+
+                start_time = timeit.default_timer()
+                grad_p_k = self._grad_p(q,k,X)#self._grad_p_X(q, k, X)
+                times.append(timeit.default_timer()-start_time)
+
+                start_time = timeit.default_timer()
                 u_k = self._u(p_k)
+                times.append(timeit.default_timer()-start_time)
+
+                start_time = timeit.default_timer()
                 v_k = self._v(p_k, y, unique_labels)
+                times.append(timeit.default_timer()-start_time)
+
+                start_time = timeit.default_timer()
                 grad_u_k = self._grad_u(p_k, grad_p_k)
+                times.append(timeit.default_timer()-start_time)
+
+                start_time = timeit.default_timer()
                 grad_v_k = self._grad_v(p_k, grad_p_k, y, unique_labels)
+                times.append(timeit.default_timer()-start_time)
+
+                times = np.asarray(times)
+                times /= np.sum(times)
+                print("time proportions: ", times)
+
                 #print("p_k: ", p_k)
                 #print("grad_p_k: ", grad_p_k)
                 #print("u_k: ", u_k)
                 #print("v_k: ", v_k)
                 #print("grad_u_k: ", grad_u_k)
                 #print("grad_v_k: ", grad_v_k)
+                print("-------------------------------------------")
                 out += v_k*grad_u_k + u_k*grad_v_k
         return (-1.0/float(X.shape[0]))*out
 
@@ -90,20 +122,11 @@ class GlobalImpurityModelTree:
         leaves = self._head._get_leaves()
         out = np.zeros((X.shape[0], len(leaves)), dtype = X.dtype)
         for k_ind in range(len(leaves)):
-            out[:,k_ind] = self._p_X(leaves[k_ind], X)
+            out[:,k_ind] = self._p(leaves[k_ind], X)#self._p_X(leaves[k_ind], X)
         return out
 
     def _leaf_maxes(self, X):
         return np.argmax(self._leaf_probs(X), axis = 1)
-
-    def _p_X(self, node, X):
-        return np.array([self._p(node, X[i]) for i in range(X.shape[0])])
-
-    def _grad_p_X(self, q, k, X):
-        assert(k._is_super_parent(q)), "_grad_p assumes q is a super parent of k"
-        return np.array([self._grad_p(q, k, X[i]) for i in range(X.shape[0])])
-
-
 
     def _u(self, p_k):
         return 1.0/np.sum(p_k)
@@ -126,24 +149,22 @@ class GlobalImpurityModelTree:
         out *= 2
         return out
 
-
-
     #where k is a node
-    def _p(self, k, x):
+    def _p(self, k, X):
         if k._is_root():
-            return 1.0
+            return np.ones(X.shape[0], dtype = X.dtype)
         k_parent = k._parent
-        return k_parent._f(k, x)*self._p(k_parent, x)
+        return k_parent._f(k, X)*self._p(k_parent, X)
 
     #is grad(node q params, an ndarray) _p(k, x)
     #assumes q is reachable by travelling across parents starting from k
-    def _grad_p(self, q, k, x):
+    def _grad_p(self, q, k, X):
         if k._is_root():
-            return np.zeros(q._model._params.shape, dtype = q._model._params.dtype)
+            return np.zeros((X.shape[0],) + q._model._params.shape, dtype = q._model._params.dtype)
         k_parent = k._parent
         if k_parent == q:
-            return self._p(k_parent, x)*k_parent._grad_f(k,x)
-        return k_parent._f(k,x)*self._grad_p(q,k_parent,x)
+            return self._p(k_parent, X)[:,np.newaxis]*k_parent._grad_f(k,X)
+        return k_parent._f(k,X)[:,np.newaxis]*self._grad_p(q,k_parent,X)
 
 
 class Node:

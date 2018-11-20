@@ -25,13 +25,14 @@ from model.impurity.global_impurity_model_tree import GlobalImpurityModelTree, N
 #TODO: Make a version of logistic trees that does not force being binary
 
 
-X,y = datasets.load_breast_cancer(return_X_y = True)#datasets.load_iris(return_X_y = True)#
+X,y = datasets.load_iris(return_X_y = True)#datasets.load_breast_cancer(return_X_y = True)#
 X = X.astype(np.float64)
 FEATURES =[0,1]#[0,1]#
 X = X[:,FEATURES]
 
 
 X = data_helper.unit_square_normalize(X)
+
 X = data_helper.mean_center(X)
 
 print("X maxes: ", np.max(X, axis = 0))
@@ -71,7 +72,9 @@ def model_fn(params, k,  X):
 def grad_model_fn(params, k, X):
     X_affine = data_helper.affine_X(X)
     k_eq_0_func_out = model_fn(params, 0, X)
-    k_eq_0_out = (k_eq_0_func_out*(1-k_eq_0_func_out))*X_affine
+    k_eq_0_out = (k_eq_0_func_out*(1-k_eq_0_func_out))[:,np.newaxis]*X_affine
+    #to dampen the bias gradient so does not overtake other params
+    k_eq_0_out[:, k_eq_0_out.shape[1] -1] *= 0.0001
     return k_eq_0_out if k == 0 else -k_eq_0_out
 
 def create_logistic_regression_node_model(x_shape):
@@ -89,7 +92,7 @@ head_child12 = Node(head_child1, None)
 head_child1.add_child(head_child11)
 head_child1.add_child(head_child12)
 model = GlobalImpurityModelTree(model_head)
-model.train(X_train, y_train, 2500, .01)
+model.train(X_train, y_train, 100000, 1)
 
 
 predictions = model.predict(X_test)
@@ -102,7 +105,7 @@ def pred_func(X):
 
 
 ax = plt.gca()
-bound_plotter.plot_contours(X, pred_func, ax, .05)
+bound_plotter.plot_contours(X, pred_func, ax, .001)
 colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
 plt.scatter(X[:,0], X[:,1], color = colors)
 plt.show()
