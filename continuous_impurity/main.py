@@ -27,7 +27,7 @@ from model.impurity.global_impurity_model_tree import GlobalImpurityModelTree, N
 
 X,y = datasets.load_iris(return_X_y = True)#datasets.load_breast_cancer(return_X_y = True)#
 X = X.astype(np.float64)
-FEATURES =[0,1]#[0,1]#
+FEATURES = [0,1]#range(X.shape[1])#
 X = X[:,FEATURES]
 
 
@@ -47,7 +47,7 @@ plt.scatter(X[:,0], X[:,1], color = colors)
 plt.show()
 
 
-NUM_TRAIN = int(0.8*X.shape[0])
+NUM_TRAIN = int(1.0*X.shape[0])
 #np.random.seed(seed = 42)
 PERMUTE_INDS = np.random.permutation(np.arange(0, X.shape[0]))
 
@@ -64,40 +64,62 @@ plt.show()
 #model = greedy_impurity_tree_builder.build_matrix_activation_logistic_impurity_tree([TanH(), TanH(), TanH()], [4,4,4], X.shape[1])#
 #model.train(None, X,y,10,20000,[1,1])
 
+def change_basis(X):
+    '''
+    X = data_helper.affine_X(X)
+    out = np.zeros((X.shape[0], X.shape[1]* X.shape[1]), dtype = X.dtype)
+    for i in range(X.shape[0]):
+
+        out[i] = np.outer(X[i], X[i]).flatten()
+    return data_helper.affine_X(out)
+    '''
+    return data_helper.affine_X(X)
+
+
 def model_fn(params, k,  X):
-    X_affine = data_helper.affine_X(X)
-    k_eq_0_out = 1.0/(1+np.exp(-np.dot(X_affine, params)))
+    X_hat = change_basis(X)
+    k_eq_0_out = 1.0/(1+np.exp(-np.dot(X_hat, params)))
     return k_eq_0_out if k==0 else 1-k_eq_0_out
 
 def grad_model_fn(params, k, X):
-    X_affine = data_helper.affine_X(X)
+    X_hat = change_basis(X)
     k_eq_0_func_out = model_fn(params, 0, X)
-    k_eq_0_out = (k_eq_0_func_out*(1-k_eq_0_func_out))[:,np.newaxis]*X_affine
+    k_eq_0_out = (k_eq_0_func_out*(1-k_eq_0_func_out))[:,np.newaxis]*X_hat
     #to dampen the bias gradient so does not overtake other params
-    k_eq_0_out[:, k_eq_0_out.shape[1] -1] *= 0.0001
+    #k_eq_0_out[:, k_eq_0_out.shape[1] -1] *= 0.0001
     return k_eq_0_out if k == 0 else -k_eq_0_out
 
-def create_logistic_regression_node_model(x_shape):
-    params = .0000001 * (np.random.rand((x_shape + 1)) - .5).astype(np.float64)
+def create_logistic_regression_node_model(X):
+    x_shape = change_basis(X).shape[1]
+    params = .0000001 * (np.random.rand((x_shape)) - .5).astype(np.float64)
     return NodeModel(params, model_fn, grad_model_fn)
 
+def construct_tree(X, depth, model_func):
+    def f(node, depth_remaining):
+        if depth_remaining == 0:
+            child1 = Node(node, None)
+            child2 = Node(node, None)
+            node.add_children([child1, child2])
+            return None
 
-model_head = Node(None, create_logistic_regression_node_model(X.shape[1]))
-head_child1 = Node(model_head, create_logistic_regression_node_model(X.shape[1]))
-head_child2 = Node(model_head, None)
-model_head.add_child(head_child1)
-model_head.add_child(head_child2)
-head_child11 = Node(head_child1, None)
-head_child12 = Node(head_child1, None)
-head_child1.add_child(head_child11)
-head_child1.add_child(head_child12)
+        child1 = Node(node, model_func(X))
+        child2 = Node(node, model_func(X))
+        node.add_children([child1, child2])
+        for child in node._children:
+            f(child, depth_remaining - 1)
+    head = Node(None, model_func(X))
+    f(head, depth)
+    return head
+
+
+model_head = construct_tree(X, 3, create_logistic_regression_node_model)
 model = GlobalImpurityModelTree(model_head)
-model.train(X_train, y_train, 100000, 1)
+model.train(X_train, y_train, 5000, 10)
 
 
-predictions = model.predict(X_test)
-num_right = np.sum(predictions==y_test)
-print("Accuracy: ", float(100.0 * num_right/float(y_test.shape[0])))
+predictions = model.predict(X)
+num_right = np.sum(predictions==y)
+print("Accuracy: ", float(100.0 * num_right/float(y.shape[0])))
 
 
 def pred_func(X):
@@ -105,12 +127,7 @@ def pred_func(X):
 
 
 ax = plt.gca()
-bound_plotter.plot_contours(X, pred_func, ax, .001)
+bound_plotter.plot_contours(X, pred_func, ax, .0025)
 colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
 plt.scatter(X[:,0], X[:,1], color = colors)
-plt.show()
-
-
-X_transformed = model._get_mat_act_transform().transform(data_helper.affine_X(X))
-plt.scatter(X_transformed[:,0], X_transformed[:,1], color = colors)
 plt.show()

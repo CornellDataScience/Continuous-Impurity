@@ -2,12 +2,20 @@ import numpy as np
 from abc import ABC, abstractmethod
 import function.impurity as impurity
 import timeit
+
+#TODO: Make backprop-y for forward and gradient
 #TODO: Implement this with lots of for loops for simplicity :(
 #TODO: Prune tree after training in order to prevent arbitray split planes when
-#a node desn'trequire more children for further separation, but is forced to train
+#a node desn't require more children for further separation, but is forced to train
 #them anyway
 
 #TODO: Fix potential vanishing gradient problem (switch to log space)
+
+#TODO: Tree naturally predisposed to vanishing gradients. Imagine a subtree
+#trains a certain way, and skews probability toward it. Then when the tree is
+#further trained, it now wants to weight the other path higher, but it's poorly
+#trained since it has dead gradients through it since they are multiplied by numbers
+#very close to zero
 
 #TODO: Modify gradients and model node to allow a list of parameters (or dictionary...
 #prob a little easier, can still iterate over the values)
@@ -21,6 +29,12 @@ import timeit
 #For now: Implementing this in such a way that it is easy to convert it into
 #abstract class, but has implemented the functions in this class
 
+#PROBLEM: asymetrical trees are unstable (see problem tree .png saved).
+#that picture is of a tree with a root, with one child being a leaf, the other
+#being another split. The first split puts all of one class on the side with
+#another split, despite that class being perfectly classified and no split
+#being able to further help that split. Then the other side is stopped from
+#being split by the fact that the remaining classes land in a leaf node.
 
 class GlobalImpurityModelTree:
 
@@ -29,6 +43,11 @@ class GlobalImpurityModelTree:
 
     def train(self, X, y, iters, learn_rate):
         unique_labels = np.unique(y)
+        where_y_eq_ls = []
+        for i in range(len(unique_labels)):
+            l = unique_labels[i]
+            where_y_eq_ls.append(np.where(y == l))
+
         for iter in range(iters):
             head_nonleaves = self._head._get_non_leaves()
             leaves = self._head._get_leaves()
@@ -36,56 +55,46 @@ class GlobalImpurityModelTree:
             head_clone_nonleaves = head_clone._get_non_leaves()
             for q_ind in range(len(head_nonleaves)):
                 q = head_nonleaves[q_ind]
-                q_grad = self._calc_gradient(q, X, y, unique_labels, leaves)
+                q_grad = self._calc_gradient(q, X, y, where_y_eq_ls, leaves)
                 head_clone_nonleaves[q_ind]._step_params(-learn_rate*q_grad)
             self._head = head_clone
-            if iter%100 == 0:
+            if iter%100== 0:
                 print("iter: ", iter)
-                print("falling leaves: ", self._leaf_maxes(X))
-                print("expected GINI: ", impurity.expected_gini(self._leaf_probs(X), y))
-                print("----------------------------------")
+                self.__print_performance(X, y)
         self.__set_leaf_labels(X, y)
-
-    def __set_leaf_labels(self, X, y):
-        len_leaves = len(self._head._get_leaves())
-        leaf_prob_maxes = self._leaf_maxes(X)
-        self.__leaf_labels = np.zeros(len_leaves, dtype = np.int)
-        for leaf_ind in range(self.__leaf_labels.shape[0]):
-            where_leaf_prob_maxes_eq_leaf_ind = np.where(leaf_prob_maxes == leaf_ind)
-            y_in_leaf = y[where_leaf_prob_maxes_eq_leaf_ind]
-            unq, counts = np.unique(y_in_leaf, return_counts = True)
-            if len(unq) == 0:
-                #NO LABELS FALL INTO THIS LEAF, MEANING THAT EITHER EITHER THE OTHER
-                #SIBLING SHOULD REPLACE THE PARENT OF THIS LEAF, OR
-                #THE PARENT SHOULD BE SET TO A LEAF (PROBABLY DEPENDS ON WHETHER
-                #LOTS OF X FALL THROUGH PARENT. IF NOT MUCH, JUST MAKE PARENT ROOT,
-                #IF LOTS FALL THROUGH PARENT, THEN THIS SUGGESTS THE MODEL DID NOT
-                #FINISH CONVERGING, BUT COULD BE CHEESED BY SETTING PARENT TO OTHER
-                #SIBLING)
-                raise ValueError("leaf with no X falling through it. TODO: Fix this case")
-
-            self.__leaf_labels[leaf_ind] = unq[np.argmax(counts)]
 
     def predict(self, X):
         leaf_prob_maxes = self._leaf_maxes(X)
         return self.__leaf_labels[leaf_prob_maxes]
 
 
-    def _calc_gradient(self, q, X, y, unique_labels, leaves):
+    def _calc_gradient(self, q, X, y, where_y_eq_ls, leaves):
         out = np.zeros(q._model._params.shape, dtype = q._model._params.dtype)
+
 
         for k in leaves:
             #otherwise this gradient term would be zero. If causing problems,
             #should be able to remove this check since the gradient of root
             #is 0
             if k._is_super_parent(q):
+
                 times = []
                 start_time = timeit.default_timer()
                 p_k = self._p(k, X)
                 times.append(timeit.default_timer()-start_time)
 
                 start_time = timeit.default_timer()
-                grad_p_k = self._grad_p(q,k,X)#self._grad_p_X(q, k, X)
+                grad_p_k = self._grad_p(q,k,X)
+                times.append(timeit.default_timer()-start_time)
+
+                start_time = timeit.default_timer()
+                where_p_k_eq_l_sums = []
+                where_grad_p_k_eq_l_sums = []
+                for label_ind in range(len(where_y_eq_ls)):
+                    where_y_eq_l = where_y_eq_ls[label_ind]
+                    where_p_k_eq_l_sums.append(np.sum(p_k[where_y_eq_l], axis = 0))
+                    where_grad_p_k_eq_l_sums.append(np.sum(grad_p_k[where_y_eq_l], axis = 0))
+
                 times.append(timeit.default_timer()-start_time)
 
                 start_time = timeit.default_timer()
@@ -93,7 +102,7 @@ class GlobalImpurityModelTree:
                 times.append(timeit.default_timer()-start_time)
 
                 start_time = timeit.default_timer()
-                v_k = self._v(p_k, y, unique_labels)
+                v_k = self._v(where_p_k_eq_l_sums)
                 times.append(timeit.default_timer()-start_time)
 
                 start_time = timeit.default_timer()
@@ -101,53 +110,37 @@ class GlobalImpurityModelTree:
                 times.append(timeit.default_timer()-start_time)
 
                 start_time = timeit.default_timer()
-                grad_v_k = self._grad_v(p_k, grad_p_k, y, unique_labels)
+                grad_v_k = self._grad_v(where_p_k_eq_l_sums, where_grad_p_k_eq_l_sums)
                 times.append(timeit.default_timer()-start_time)
 
                 times = np.asarray(times)
                 times /= np.sum(times)
                 print("time proportions: ", times)
-
-                #print("p_k: ", p_k)
-                #print("grad_p_k: ", grad_p_k)
-                #print("u_k: ", u_k)
-                #print("v_k: ", v_k)
-                #print("grad_u_k: ", grad_u_k)
-                #print("grad_v_k: ", grad_v_k)
                 print("-------------------------------------------")
                 out += v_k*grad_u_k + u_k*grad_v_k
         return (-1.0/float(X.shape[0]))*out
 
-    def _leaf_probs(self, X):
-        leaves = self._head._get_leaves()
-        out = np.zeros((X.shape[0], len(leaves)), dtype = X.dtype)
-        for k_ind in range(len(leaves)):
-            out[:,k_ind] = self._p(leaves[k_ind], X)#self._p_X(leaves[k_ind], X)
-        return out
-
-    def _leaf_maxes(self, X):
-        return np.argmax(self._leaf_probs(X), axis = 1)
 
     def _u(self, p_k):
         return 1.0/np.sum(p_k)
 
-    def _v(self, p_k, y, unique_labels):
+    def _v(self, where_y_eq_l_p_k_sums):
         out = 0
-        for l in unique_labels:
-            where_y_eq_l = np.where(y == l)
-            out += np.square(np.sum(p_k[where_y_eq_l], axis = 0))
+        for eq_l_sum in where_y_eq_l_p_k_sums:
+            out += np.square(eq_l_sum)
         return out
 
     def _grad_u(self, p_k, grad_p_k):
         return -np.sum(grad_p_k, axis = 0)/np.square(np.sum(p_k))
 
-    def _grad_v(self, p_k, grad_p_k, y, unique_labels):
-        out = np.zeros(grad_p_k.shape[1], dtype = grad_p_k.dtype)
-        for l in unique_labels:
-            where_y_eq_l = np.where(y == l)
-            out += np.sum(p_k[where_y_eq_l])*np.sum(grad_p_k[where_y_eq_l], axis = 0)
+    def _grad_v(self, where_p_k_eq_l_sums, where_grad_p_k_eq_l_sums):
+        out = np.zeros(where_grad_p_k_eq_l_sums[0].shape[0], dtype = where_grad_p_k_eq_l_sums[0].dtype)
+        for l_ind in range(len(where_p_k_eq_l_sums)):
+            out += where_p_k_eq_l_sums[l_ind]*\
+                where_grad_p_k_eq_l_sums[l_ind]
         out *= 2
         return out
+
 
     #where k is a node
     def _p(self, k, X):
@@ -167,6 +160,65 @@ class GlobalImpurityModelTree:
         return k_parent._f(k,X)[:,np.newaxis]*self._grad_p(q,k_parent,X)
 
 
+    def __print_performance(self, X, y):
+        leaf_maxes = self._leaf_maxes(X)
+        _, leaf_counts = np.unique(leaf_maxes, return_counts = True)
+        print("falling leaves: ", leaf_counts)
+        print("leaf probs: ", self._leaf_probs(X))
+        print("expected GINI: ", impurity.expected_gini(self._leaf_probs(X), y))
+        y_in_leaves = [y[np.where(leaf_maxes == leaf_num)] for leaf_num in range(len(self._head._get_leaves()))]
+        print("GINI: ", impurity.gini(y_in_leaves))
+        try:
+            self.__set_leaf_labels(X, y)
+            predicts = self.predict(X)
+            print("accuracy: ", 100.0*(np.sum(predicts == y))/float(y.shape[0]))
+        except:
+            print("tree not trained enough to evaluate accuracy")
+        print("----------------------------------")
+
+
+    def _leaf_probs(self, X):
+        leaves = self._head._get_leaves()
+        out = np.zeros((X.shape[0], len(leaves)), dtype = X.dtype)
+        for k_ind in range(len(leaves)):
+            out[:,k_ind] = self._p(leaves[k_ind], X)
+        return out
+
+    def _leaf_maxes(self, X):
+        return np.argmax(self._leaf_probs(X), axis = 1)
+
+    def __set_leaf_labels(self, X, y):
+        len_leaves = len(self._head._get_leaves())
+        leaf_prob_maxes = self._leaf_maxes(X)
+        self.__leaf_labels = np.zeros(len_leaves, dtype = np.int)
+        for leaf_ind in range(self.__leaf_labels.shape[0]):
+            where_leaf_prob_maxes_eq_leaf_ind = np.where(leaf_prob_maxes == leaf_ind)
+            y_in_leaf = y[where_leaf_prob_maxes_eq_leaf_ind]
+            unq, counts = np.unique(y_in_leaf, return_counts = True)
+            if len(unq) == 0:
+                #NO LABELS FALL INTO THIS LEAF, MEANING THAT EITHER EITHER THE OTHER
+                #SIBLING SHOULD REPLACE THE PARENT OF THIS LEAF, OR
+                #THE PARENT SHOULD BE SET TO A LEAF (PROBABLY DEPENDS ON WHETHER
+                #LOTS OF X FALL THROUGH PARENT. IF NOT MUCH, JUST MAKE PARENT ROOT,
+                #IF LOTS FALL THROUGH PARENT, THEN THIS SUGGESTS THE MODEL DID NOT
+                #FINISH CONVERGING, BUT COULD BE CHEESED BY SETTING PARENT TO OTHER
+                #SIBLING)
+                #raise ValueError("leaf with no X falling through it. TODO: Fix this case")
+
+                #through analyzing cases where this occurs, seems to happen when a node
+                #already has incredibly good impurity on its subset, so prob makes
+                #senes to just set the parent to be a leaf,
+                self.__leaf_labels[leaf_ind] = -1#(i.e. doesn't know what to do with this input)
+            else:
+                self.__leaf_labels[leaf_ind] = unq[np.argmax(counts)]
+
+        self.__prune()
+
+    def __prune(self):
+        #should remove leaves that have no x falling into them, until at parent
+        #where X does fall into it, and set that to a leaf.
+        return None
+
 class Node:
     #where model must be a NodeModel, and MUST be None if this node is a leaf
     def __init__(self, parent, model):
@@ -174,10 +226,13 @@ class Node:
         self._model = model
         self._children = []
 
-    def add_child(self, child):
-        assert(self._model is not None)
-        assert(child._parent == self)
-        self._children.append(child)
+    def add_children(self, children):
+        if not isinstance(children, list):
+            children = [children]
+        for child in children:
+            assert(self._model is not None)
+            assert(child._parent == self)
+            self._children.append(child)
 
     def _init_with_children(self, parent, model, children):
         out = Node(parent, model)
@@ -275,7 +330,7 @@ class Node:
         return self.__str__()
 
 class NodeModel:
-    #model_func must be of the form f(child_node_num, x)
+    #model_func must be of the form f(params, child_node_num, x)
     #grad_model_func must be grad (params) f(child_node_num, x)
     def __init__(self, params, model_func, grad_model_func):
         self._params = params
