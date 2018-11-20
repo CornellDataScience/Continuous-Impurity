@@ -14,7 +14,8 @@ class MatrixActivationLogisticImpurity(ImpurityModel):
     this factor in order to allow the directional components (w in f)
     from being overtaken by b.
     '''
-    TRANSFORM_BIAS_GRADIENT_DAMPEN_FACTOR = 0.00001
+    TRANSFORM_BIAS_GRADIENT_DAMPEN_FACTOR = 0.01
+    BIAS_GRADIENT_DAMPEN_FACTOR = 1
 
     def __init__(self, act_func, x_length, transform_x_length):
         self.__act_func = act_func
@@ -37,19 +38,22 @@ class MatrixActivationLogisticImpurity(ImpurityModel):
     '''returns a matrix, A, with shape (X.shape[0], self.__num_subgroups)
     where A[i,j] is the probability of X[i] being assigned to subset j.'''
     def predict(self, X):
-        X_prep = self.__transform_prepare_X(X)
-        transforms = self._get_mat_act_transform().transform(X_prep)
+        transforms = self._transform(X)
         transforms_prep = self.__dot_prepare_transform(transforms)
         p0 = stable_func.sigmoid(np.dot(transforms_prep, self._get_params()[0]))
         return np.column_stack([p0, 1-p0])
 
+    def _transform(self, X):
+        X_prep = self.__transform_prepare_X(X)
+        return self._get_mat_act_transform().transform(X_prep)
 
     def _d_predict_d_params(self, X, predicts):
         X_prep = self.__transform_prepare_X(X)
-        transform_X_prep = self.__dot_prepare_transform(self._get_mat_act_transform().transform(X_prep))
+        transform_X = self._transform(X)
+        transform_X_prep = self.__dot_prepare_transform(transform_X)
         sigmoid_deriv = predicts[:,0]*(1.0-predicts[:,0])
         grad_predict0_params0 = transform_X_prep*(sigmoid_deriv[:,np.newaxis])
-
+        grad_predict0_params0[grad_predict0_params0.shape[0]-1] *=  MatrixActivationLogisticImpurity.BIAS_GRADIENT_DAMPEN_FACTOR
 
 
         grad_predict0_params1 = np.zeros((X.shape[0],) + self._get_params()[1].shape, dtype = np.float64)

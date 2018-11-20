@@ -7,6 +7,8 @@ import timeit
 class ImpurityModel(ABC):
 
     def __init__(self, num_subgroups, params):
+        #make sure NEVER to break the pointer between self.__params stored here,
+        #otherwise model will never update its weights during training
         self.__params = params
         self.__num_subgroups = num_subgroups
 
@@ -16,10 +18,12 @@ class ImpurityModel(ABC):
     def predict(self, X):
         pass
 
+
+
     '''
-    returns a list, L, of numpy arrays such that L[n] is the gradient of the model,
-    A, w.r.t. the nth paramater (vector, matrix, etc.), where A is of the shape:
-    (self.__num_subgroups, X.shape[0]) + self.__params[n].shape
+    returns a list, L, s.t. L[n] is the gradient of predict w.r.t.
+    parameter n. Where:
+    L[n] is of the shape: (X.shape[0], num_subgroups,) + self.__params[n].shape
     '''
     @abstractmethod
     def _d_predict_d_params(self, X, predicts):
@@ -47,36 +51,12 @@ class ImpurityModel(ABC):
     def __gradient(self, X, y, unique_labels):
         out = [np.zeros(param.shape, dtype = np.float64) for param in self.__params]
 
-        times = []
-
-        start_time = timeit.default_timer()
         predicts = self.predict(X)
-        times.append(timeit.default_timer() - start_time)
-
-
-        start_time = timeit.default_timer()
         d_params = self._d_predict_d_params(X, predicts)
-        times.append(timeit.default_timer() - start_time)
-
-        start_time = timeit.default_timer()
         u = self.__u(predicts)
-        times.append(timeit.default_timer() - start_time)
-
-        start_time = timeit.default_timer()
         du = self.__du_dthetas(predicts, d_params)
-        times.append(timeit.default_timer() - start_time)
-
-        start_time = timeit.default_timer()
         v = self.__v(predicts, y, unique_labels)
-        times.append(timeit.default_timer() - start_time)
-
-        start_time = timeit.default_timer()
         dv = self.__dv_dthetas(predicts, d_params, y, unique_labels)
-        times.append(timeit.default_timer() - start_time)
-
-        times = np.asarray(times)
-        #print("times: ", times)
-        #print("relative times: ", times/np.sum(times))
 
         for i in range(len(out)):
             for k in range(self.__num_subgroups):
