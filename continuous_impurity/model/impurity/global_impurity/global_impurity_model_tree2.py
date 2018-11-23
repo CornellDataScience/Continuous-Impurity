@@ -70,10 +70,17 @@ class GlobalImpurityModelTree2:
     def __calc_gradient(self, q, p_dict, X, y, unique_labels):
         #check how expensive this is
         grad_p_dict = self.calc_grad_p_leaves_dict(q, p_dict, X)
+
+
         out = {p: np.zeros(q._model._params_dict[p].shape, dtype = q._model._params_dict[p].dtype) for p in q._model._params_dict}
         profiler = StopwatchProfiler()
         for k in q._get_leaves():
             p_dict_sum_k = np.sum(p_dict[k], axis = 0)
+            grad_p_dict_sum_k = {}
+            for param in grad_p_dict[k]:
+                grad_p_dict_sum_k[param] = np.sum(grad_p_dict[k][param], axis = 0)
+
+
             profiler.start()
 
             u_k = self.__u(k, p_dict_sum_k)
@@ -82,7 +89,7 @@ class GlobalImpurityModelTree2:
             v_k = self.__v(k, p_dict, y, unique_labels)
             profiler.lap("v_k calculated")
 
-            grad_u_k = self.__grad_u(k, p_dict, grad_p_dict)
+            grad_u_k = self.__grad_u(k, p_dict_sum_k, grad_p_dict_sum_k)
             profiler.lap("grad_u_k calculated")
 
             grad_v_k = self.__grad_v(k, p_dict, grad_p_dict, y, unique_labels)
@@ -113,11 +120,11 @@ class GlobalImpurityModelTree2:
             out += np.square(np.sum(p_dict[k][where_y_eq_l]))
         return out
 
-    def __grad_u(self, k, p_dict, grad_p_dict):
-        denominator = np.square(np.sum(p_dict[k]))
+    def __grad_u(self, k, p_dict_sum_k, grad_p_dict_sum_k):
+        denominator = np.square(p_dict_sum_k)
         out = {}
-        for param in grad_p_dict[k]:
-            out[param] = -np.sum(grad_p_dict[k][param], axis = 0)/denominator
+        for param in grad_p_dict_sum_k:
+            out[param] = -grad_p_dict_sum_k[param]/denominator
         return out
 
     def __grad_v(self, k, p_dict, grad_p_dict, y, unique_labels):
