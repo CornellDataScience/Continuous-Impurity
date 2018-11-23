@@ -107,7 +107,7 @@ head = create_dud_tree(5)
 
 
 '''
-TODO: Move static methods in GlobalImpurityNode2 to GlobalImpurityModelTree2,
+TODO: 
 Check correctness of these methods in GlobalImpurityModelTree2, (pretty sure should be monotone decreasing,
 but saw cost increase despite not nearing the optimum quite yet)
 Speed these methods up,

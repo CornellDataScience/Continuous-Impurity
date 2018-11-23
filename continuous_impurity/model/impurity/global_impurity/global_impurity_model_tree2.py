@@ -2,6 +2,7 @@ import numpy as np
 from model.impurity.global_impurity.global_impurity_node2 import GlobalImpurityNode2
 import toolbox.numpy_helper as numpy_helper
 import function.impurity as impurity
+from performance.stopwatch_profiler import StopwatchProfiler
 
 class GlobalImpurityModelTree2:
 
@@ -64,25 +65,46 @@ class GlobalImpurityModelTree2:
             subset_assign_probs[:,i] = p_dict[leaves[i]]
         print("EXPECTED GINI: ", impurity.expected_gini(subset_assign_probs, y))
 
+    #lots summing over p(k|X) happens a lot -- maybe pass in a dict with these
+    #values so they are precalculated?
     def __calc_gradient(self, q, p_dict, X, y, unique_labels):
+        #check how expensive this is
         grad_p_dict = self.calc_grad_p_leaves_dict(q, p_dict, X)
         out = {p: np.zeros(q._model._params_dict[p].shape, dtype = q._model._params_dict[p].dtype) for p in q._model._params_dict}
-
+        profiler = StopwatchProfiler()
         for k in q._get_leaves():
-            u_k = self.__u(k, p_dict)
+            p_dict_sum_k = np.sum(p_dict[k], axis = 0)
+            profiler.start()
+
+            u_k = self.__u(k, p_dict_sum_k)
+            profiler.lap("u_k calculated")
+
             v_k = self.__v(k, p_dict, y, unique_labels)
+            profiler.lap("v_k calculated")
+
             grad_u_k = self.__grad_u(k, p_dict, grad_p_dict)
+            profiler.lap("grad_u_k calculated")
+
             grad_v_k = self.__grad_v(k, p_dict, grad_p_dict, y, unique_labels)
+            profiler.lap("grad_v_k calculated")
+
             for param in out:
                 out[param] += v_k*grad_u_k[param] + u_k*grad_v_k[param]
 
+            profiler.lap("params stepped")
+            profiler.stop()
+
+            print("Relative profiles: ", profiler.relative_lap_deltas())
+            print("----------------------")
+
+            profiler.reset()
         for param in out:
             out[param] *= -1.0/float(X.shape[0])
         return out
 
 
-    def __u(self, k, p_dict):
-        return 1.0/np.sum(p_dict[k])
+    def __u(self, k, p_dict_sum_k):
+        return 1.0/p_dict_sum_k
 
     def __v(self, k, p_dict, y, unique_labels):
         out = 0
