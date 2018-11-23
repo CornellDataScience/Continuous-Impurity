@@ -77,7 +77,7 @@ class GlobalImpurityModelTree2:
         #check how expensive this is
         grad_p_dict = self.calc_grad_p_leaves_dict(q, p_dict, X)
 
-
+        param_shape_dict = {p:q._model._params_dict[p].shape for p in q._model._params_dict}
         out = {p: np.zeros(q._model._params_dict[p].shape, dtype = q._model._params_dict[p].dtype) for p in q._model._params_dict}
         profiler = StopwatchProfiler()
         for k in q._get_leaves():
@@ -85,25 +85,40 @@ class GlobalImpurityModelTree2:
 
 
             p_dict_sum_k = np.sum(p_dict[k], axis = 0)
+
             grad_p_dict_sum_k = {}
             for param in grad_p_dict[k]:
                 grad_p_dict_sum_k[param] = np.sum(grad_p_dict[k][param], axis = 0)
 
-            profiler.lap("procalculation finished")
+            p_dict_sum_k_where_y_eq_ls = []
+            grad_p_dict_sum_k_where_y_eq_ls = []
+            for l_ind in range(len(where_y_eq_ls)):
+                p_dict_sum_k_where_y_eq_ls.append(np.sum(p_dict[k][where_y_eq_ls[l_ind]]))
+
+                grad_p_dict_sum_k_where_y_eq_l_ind = {}
+                for param in grad_p_dict[k]:
+                    grad_p_dict_sum_k_where_y_eq_l_ind[param] = np.sum(grad_p_dict[k][param][where_y_eq_ls[l_ind]], axis = 0)
+                grad_p_dict_sum_k_where_y_eq_ls.append(grad_p_dict_sum_k_where_y_eq_l_ind)
+
+
+
+            profiler.lap("precalculation finished")
 
 
 
 
-            u_k = self.__u(k, p_dict_sum_k)
+            u_k = self.__u(p_dict_sum_k)
             profiler.lap("u_k calculated")
 
-            v_k = self.__v(k, p_dict, y, where_y_eq_ls)
+            v_k = self.__v(p_dict_sum_k_where_y_eq_ls)
             profiler.lap("v_k calculated")
 
-            grad_u_k = self.__grad_u(k, p_dict_sum_k, grad_p_dict_sum_k)
+            grad_u_k = self.__grad_u(p_dict_sum_k, grad_p_dict_sum_k)
             profiler.lap("grad_u_k calculated")
 
-            grad_v_k = self.__grad_v(k, p_dict, grad_p_dict, y, unique_labels, where_y_eq_ls)
+
+
+            grad_v_k = self.__grad_v(param_shape_dict, p_dict_sum_k_where_y_eq_ls, grad_p_dict_sum_k_where_y_eq_ls)
             profiler.lap("grad_v_k calculated")
 
             for param in out:
@@ -112,8 +127,8 @@ class GlobalImpurityModelTree2:
             profiler.lap("params stepped")
             profiler.stop()
 
-            print("Relative profiles: ", profiler.relative_lap_deltas())
-            print("----------------------")
+            #print("Relative profiles: ", profiler.relative_lap_deltas())
+            #print("----------------------")
 
             profiler.reset()
         for param in out:
@@ -121,41 +136,29 @@ class GlobalImpurityModelTree2:
         return out
 
 
-    def __u(self, k, p_dict_sum_k):
+    def __u(self, p_dict_sum_k):
         return 1.0/p_dict_sum_k
 
-    def __v(self, k, p_dict, y, where_y_eq_ls):
+    def __v(self, p_dict_sum_k_where_y_eq_ls):
         out = 0
-        for l_ind in range(len(where_y_eq_ls)):
-            where_y_eq_l = where_y_eq_ls[l_ind]
-            sqrt_out_plus = np.sum(p_dict[k][where_y_eq_l])
-            out += sqrt_out_plus * sqrt_out_plus
+        for l_ind in range(len(p_dict_sum_k_where_y_eq_ls)):
+            sqrt_out_plus = p_dict_sum_k_where_y_eq_ls[l_ind]
+            out += sqrt_out_plus*sqrt_out_plus
         return out
 
-    def __grad_u(self, k, p_dict_sum_k, grad_p_dict_sum_k):
+    def __grad_u(self, p_dict_sum_k, grad_p_dict_sum_k):
         denominator = np.square(p_dict_sum_k)
         out = {}
         for param in grad_p_dict_sum_k:
             out[param] = -grad_p_dict_sum_k[param]/denominator
         return out
 
-    def __grad_v(self, k, p_dict, grad_p_dict, y, unique_labels, where_y_eq_ls):
-        #[1:] because the 0th axis is for indexing along X
-        out = {p:np.zeros(grad_p_dict[k][p].shape[1:]) for p in grad_p_dict[k]}
-        for l_ind in range(len(where_y_eq_ls)):
-            where_y_eq_l = where_y_eq_ls[l_ind]
-            p_where_y_eq_l_sum = np.sum(p_dict[k][where_y_eq_l])
-            for param in grad_p_dict[k]:
-                out[param] += 2.0*p_where_y_eq_l_sum * np.sum(grad_p_dict[k][param][where_y_eq_l], axis = 0)
-        return out
-        '''
-        #[1:] because the 0th axis is for indexing along X
-        out = {p:np.zeros(grad_p_dict[k][p].shape[1:]) for p in grad_p_dict[k]}
-        for l in unique_labels:
-            where_y_eq_l = np.where(y==l)
-            p_where_y_eq_l_sum = np.sum(p_dict[k][where_y_eq_l])
-            for param in grad_p_dict[k]:
-                out[param] += 2.0*p_where_y_eq_l_sum * np.sum(grad_p_dict[k][param][where_y_eq_l], axis = 0)
+    def __grad_v(self, param_shape_dict, p_dict_sum_k_where_y_eq_ls, grad_p_dict_sum_k_where_y_eq_ls):
+        out = {p:np.zeros(param_shape_dict[p]) for p in param_shape_dict}
+        for l_ind in range(len(p_dict_sum_k_where_y_eq_ls)):
+            p_where_y_eq_l_sum = p_dict_sum_k_where_y_eq_ls[l_ind]
 
+            for param in grad_p_dict_sum_k_where_y_eq_ls[l_ind]:
+                out[param] += 2.0*p_where_y_eq_l_sum * \
+                    grad_p_dict_sum_k_where_y_eq_ls[l_ind][param]
         return out
-        '''
