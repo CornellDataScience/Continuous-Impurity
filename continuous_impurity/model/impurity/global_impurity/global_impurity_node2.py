@@ -46,7 +46,7 @@ class GlobalImpurityNode2:
 
     def _step_params(self, params_grad, learn_rate):
         for p in params_grad:
-            self._model._params_dict[p] += learn_rate*params_grad[p]
+            self._model._params_dict[p] -= learn_rate*params_grad[p]
 
     def _is_root(self):
         return self._parent is None

@@ -114,7 +114,8 @@ Speed these methods up,
 make the func and grad_func more stable (was getting NaNs during training after
 what appeared to be fairly good convergence)
 '''
-GlobalImpurityModelTree2.train(head, X, y, 100000, 1)
+model = GlobalImpurityModelTree2(head)
+model.train( X, y, 100000, 1)
 
 
 
