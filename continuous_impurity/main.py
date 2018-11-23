@@ -13,7 +13,8 @@ from function.activation.sigmoid import Sigmoid
 from function.activation.tanh import TanH
 from function.activation.identity import Identity
 import model.impurity.greedy_impurity_tree_builder as greedy_impurity_tree_builder
-from model.impurity.global_impurity_model_tree import GlobalImpurityModelTree, Node, NodeModel
+from model.impurity.global_impurity.global_impurity_node2 import GlobalImpurityNode2
+from model.impurity.global_impurity.node_model2 import NodeModel2
 
 #REMINDER: Use np.float_power instead of ** or np.power for fractional powers
 #TODO: make a more general framework for treebased models using continuous impurity. I.e. make
@@ -47,7 +48,7 @@ plt.scatter(X[:,0], X[:,1], color = colors)
 plt.show()
 
 
-NUM_TRAIN = int(1.0*X.shape[0])
+NUM_TRAIN = int(.1*X.shape[0])
 #np.random.seed(seed = 42)
 PERMUTE_INDS = np.random.permutation(np.arange(0, X.shape[0]))
 
@@ -60,19 +61,58 @@ y_test = y[TEST_INDS]
 
 plt.show()
 
-#model = greedy_impurity_tree_builder.build_logistic_impurity_tree(X_train.shape[1], 2)
-#model = greedy_impurity_tree_builder.build_matrix_activation_logistic_impurity_tree([TanH(), TanH(), TanH()], [4,4,4], X.shape[1])#
-#model.train(None, X,y,10,20000,[1,1])
+def create_dud_node_model2():
+    def dud_func(params_dict, k, X):
+        if k == 0:
+            return (np.full(X.shape[0], 0.75), X)
+        return (np.full(X.shape[0], 0.25), X)
 
+    def dud_grad_func(params_dict, k, X):
+        out1 = {}
+        out2 = {}
+        for key in params_dict:
+            out1[key] = np.zeros(params_dict[key].shape, dtype = params_dict[key].dtype)
+            out2[key] = np.zeros(params_dict[key].shape, dtype = params_dict[key].dtype)
+        return (out1, out2)
+    params_dict = {"k1": np.zeros(X.shape[1])}
+    return NodeModel2(params_dict, dud_func, dud_grad_func)
+
+def create_dud_tree(depth):
+    def build(node, remaining_depth):
+        if remaining_depth == 0:
+            return None
+        for i in range(0, 2):
+            add_child = GlobalImpurityNode2(node, create_dud_node_model2()) \
+                if remaining_depth != 1 else \
+                GlobalImpurityNode2(node, None)
+            node.add_children(add_child)
+        for child in node._children:
+            build(child, remaining_depth - 1)
+
+
+    head = GlobalImpurityNode2(None, create_dud_node_model2())
+    build(head, depth)
+    return head
+
+head = create_dud_tree(2)
+
+print("p_nodes: ", GlobalImpurityNode2.p_nodes(head, X_train))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'''
 def change_basis(X):
-    '''
-    X = data_helper.affine_X(X)
-    out = np.zeros((X.shape[0], X.shape[1]* X.shape[1]), dtype = X.dtype)
-    for i in range(X.shape[0]):
-
-        out[i] = np.outer(X[i], X[i]).flatten()
-    return data_helper.affine_X(out)
-    '''
     return data_helper.affine_X(X)
 
 
@@ -131,3 +171,4 @@ bound_plotter.plot_contours(X, pred_func, ax, .0025)
 colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
 plt.scatter(X[:,0], X[:,1], color = colors)
 plt.show()
+'''

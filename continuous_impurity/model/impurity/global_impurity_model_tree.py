@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 import function.impurity as impurity
 import timeit
 
-#TODO: Make backprop-y for forward and gradient
+#TODO: Make backprop-y for forward and gradient (modify tree nodes to hold
+#p(k|X) and relevant info for lower nodes to get grad p(k|X))
 #TODO: Implement this with lots of for loops for simplicity :(
 #TODO: Prune tree after training in order to prevent arbitray split planes when
 #a node desn't require more children for further separation, but is forced to train
@@ -218,6 +219,13 @@ class GlobalImpurityModelTree:
         #should remove leaves that have no x falling into them, until at parent
         #where X does fall into it, and set that to a leaf.
         return None
+
+
+class BackpropNode:
+
+    def __init__(self, p_k_X, grad_p_k_X):
+
+
 
 class Node:
     #where model must be a NodeModel, and MUST be None if this node is a leaf
