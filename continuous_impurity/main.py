@@ -103,11 +103,11 @@ def create_dud_tree(depth):
     build(head, depth)
     return head
 
-head = create_dud_tree(5)
+head = create_dud_tree(3)
 
 
 '''
-TODO: 
+TODO:
 Check correctness of these methods in GlobalImpurityModelTree2, (pretty sure should be monotone decreasing,
 but saw cost increase despite not nearing the optimum quite yet)
 Speed these methods up,

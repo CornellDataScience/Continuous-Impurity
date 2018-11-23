@@ -46,17 +46,6 @@ class GlobalImpurityModelTree2:
         return out
 
 
-    def train(self, X, y, iters, learn_rate):
-        unique_labels = np.unique(y)
-        nonleaves = self.__head._get_nonleaves()
-        for iter in range(iters):
-            p_dict = self.calc_p_dict(X)
-            for node in nonleaves:
-                node._step_params(self.__calc_gradient(node, p_dict, X, y, unique_labels), learn_rate)
-            if iter % 100 == 0:
-                print("iter: ", iter)
-                self.__print_performance( p_dict, X, y)
-                print("------------------------------------------")
 
     def __print_performance(self, p_dict, X, y):
         leaves = self.__head._get_leaves()
@@ -65,9 +54,26 @@ class GlobalImpurityModelTree2:
             subset_assign_probs[:,i] = p_dict[leaves[i]]
         print("EXPECTED GINI: ", impurity.expected_gini(subset_assign_probs, y))
 
+
+
+    def train(self, X, y, iters, learn_rate):
+        unique_labels = np.unique(y)
+        nonleaves = self.__head._get_nonleaves()
+        where_y_eq_ls = []
+        for l in unique_labels:
+            where_y_eq_ls.append(np.where(y == l))
+        for iter in range(iters):
+            p_dict = self.calc_p_dict(X)
+            for node in nonleaves:
+                node._step_params(self.__calc_gradient(node, p_dict, X, y, unique_labels, where_y_eq_ls), learn_rate)
+            if iter % 100 == 0:
+                print("iter: ", iter)
+                self.__print_performance( p_dict, X, y)
+                print("------------------------------------------")
+
     #lots summing over p(k|X) happens a lot -- maybe pass in a dict with these
     #values so they are precalculated?
-    def __calc_gradient(self, q, p_dict, X, y, unique_labels):
+    def __calc_gradient(self, q, p_dict, X, y, unique_labels, where_y_eq_ls):
         #check how expensive this is
         grad_p_dict = self.calc_grad_p_leaves_dict(q, p_dict, X)
 
@@ -75,24 +81,29 @@ class GlobalImpurityModelTree2:
         out = {p: np.zeros(q._model._params_dict[p].shape, dtype = q._model._params_dict[p].dtype) for p in q._model._params_dict}
         profiler = StopwatchProfiler()
         for k in q._get_leaves():
+            profiler.start()
+
+
             p_dict_sum_k = np.sum(p_dict[k], axis = 0)
             grad_p_dict_sum_k = {}
             for param in grad_p_dict[k]:
                 grad_p_dict_sum_k[param] = np.sum(grad_p_dict[k][param], axis = 0)
 
+            profiler.lap("procalculation finished")
 
-            profiler.start()
+
+
 
             u_k = self.__u(k, p_dict_sum_k)
             profiler.lap("u_k calculated")
 
-            v_k = self.__v(k, p_dict, y, unique_labels)
+            v_k = self.__v(k, p_dict, y, where_y_eq_ls)
             profiler.lap("v_k calculated")
 
             grad_u_k = self.__grad_u(k, p_dict_sum_k, grad_p_dict_sum_k)
             profiler.lap("grad_u_k calculated")
 
-            grad_v_k = self.__grad_v(k, p_dict, grad_p_dict, y, unique_labels)
+            grad_v_k = self.__grad_v(k, p_dict, grad_p_dict, y, unique_labels, where_y_eq_ls)
             profiler.lap("grad_v_k calculated")
 
             for param in out:
@@ -113,11 +124,12 @@ class GlobalImpurityModelTree2:
     def __u(self, k, p_dict_sum_k):
         return 1.0/p_dict_sum_k
 
-    def __v(self, k, p_dict, y, unique_labels):
+    def __v(self, k, p_dict, y, where_y_eq_ls):
         out = 0
-        for l in unique_labels:
-            where_y_eq_l = np.where(y == l)
-            out += np.square(np.sum(p_dict[k][where_y_eq_l]))
+        for l_ind in range(len(where_y_eq_ls)):
+            where_y_eq_l = where_y_eq_ls[l_ind]
+            sqrt_out_plus = np.sum(p_dict[k][where_y_eq_l])
+            out += sqrt_out_plus * sqrt_out_plus
         return out
 
     def __grad_u(self, k, p_dict_sum_k, grad_p_dict_sum_k):
@@ -127,7 +139,16 @@ class GlobalImpurityModelTree2:
             out[param] = -grad_p_dict_sum_k[param]/denominator
         return out
 
-    def __grad_v(self, k, p_dict, grad_p_dict, y, unique_labels):
+    def __grad_v(self, k, p_dict, grad_p_dict, y, unique_labels, where_y_eq_ls):
+        #[1:] because the 0th axis is for indexing along X
+        out = {p:np.zeros(grad_p_dict[k][p].shape[1:]) for p in grad_p_dict[k]}
+        for l_ind in range(len(where_y_eq_ls)):
+            where_y_eq_l = where_y_eq_ls[l_ind]
+            p_where_y_eq_l_sum = np.sum(p_dict[k][where_y_eq_l])
+            for param in grad_p_dict[k]:
+                out[param] += 2.0*p_where_y_eq_l_sum * np.sum(grad_p_dict[k][param][where_y_eq_l], axis = 0)
+        return out
+        '''
         #[1:] because the 0th axis is for indexing along X
         out = {p:np.zeros(grad_p_dict[k][p].shape[1:]) for p in grad_p_dict[k]}
         for l in unique_labels:
@@ -137,3 +158,4 @@ class GlobalImpurityModelTree2:
                 out[param] += 2.0*p_where_y_eq_l_sum * np.sum(grad_p_dict[k][param][where_y_eq_l], axis = 0)
 
         return out
+        '''
