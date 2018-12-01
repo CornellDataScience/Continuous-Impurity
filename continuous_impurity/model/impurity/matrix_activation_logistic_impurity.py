@@ -14,7 +14,7 @@ class MatrixActivationLogisticImpurity(ImpurityModel):
     this factor in order to allow the directional components (w in f)
     from being overtaken by b.
     '''
-    TRANSFORM_BIAS_GRADIENT_DAMPEN_FACTOR = 0.01
+    TRANSFORM_BIAS_GRADIENT_DAMPEN_FACTOR = 0.00001
     BIAS_GRADIENT_DAMPEN_FACTOR = 1
 
     def __init__(self, act_func, x_length, transform_x_length):

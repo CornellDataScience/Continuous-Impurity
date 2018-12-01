@@ -8,6 +8,25 @@ class GlobalImpurityNode2:
         self._parent = parent
         self._children = []
         self._model = model
+        self._leaf_predict = None
+        self._leaf_id = None
+
+
+    def _predict(self, X, inds, predictions, predict_leaves):
+        if self._is_leaf():
+            if predict_leaves:
+                predictions[inds] = self._leaf_id
+            else:
+                predictions[inds] = self._leaf_predict
+            return None
+        X_inds = X[inds]
+        f_X_inds_outs = np.column_stack([self._model._f(k, X_inds) for k in range(len(self._children))])
+        children_assigns = np.argmax(f_X_inds_outs, axis = 1)
+        for child_num in range(len(self._children)):
+            where_children_assigns_eq_child_num = np.where(children_assigns == child_num)
+            inds_to_child = inds[where_children_assigns_eq_child_num]
+            self._children[child_num]._predict(X, inds_to_child, predictions, predict_leaves)
+
 
     def add_children(self, *to_add):
         self._children.extend(to_add)
