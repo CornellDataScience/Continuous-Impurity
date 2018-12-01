@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def create_rect_simple(rect_region = np.array([[-.5,.5],[-.5,.5]]),step_size = 0.25):
+def create_rect_simple(rect_region = np.array([[-.5,.5],[-.5,.5]]),step_size = 0.1):
     xs = np.arange(-1,1,step_size)
     ys = np.arange(-1,1,step_size)
     print("xs: ", xs)

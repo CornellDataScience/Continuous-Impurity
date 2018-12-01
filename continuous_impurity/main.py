@@ -19,6 +19,7 @@ from model.impurity.global_impurity.node_model2 import NodeModel2
 from model.impurity.global_impurity.global_impurity_model_tree2 import GlobalImpurityModelTree2
 import model.impurity.global_impurity.global_impurity_tree_maker2 as global_impurity_tree_maker2
 import toolbox.data_maker as data_maker
+import function.stable_func as stable_func
 
 from sklearn import tree
 import math
@@ -33,19 +34,21 @@ import math
 
 
 #X,y =  datasets.make_classification(n_samples = 200, n_features=2, n_redundant=0, n_informative=2,random_state=2, n_clusters_per_class=2)
-#X,y = datasets.load_digits(return_X_y = True)##datasets.load_iris(return_X_y = True)#datasets.load_breast_cancer(return_X_y = True)#datasets.make_moons()#
+#X,y = datasets.load_digits(return_X_y = True)#datasets.load_iris(return_X_y = True)#datasets.load_breast_cancer(return_X_y = True)#datasets.make_moons()#
 X, y = data_maker.create_rect_simple()
 X = X.astype(np.float64)
 
-ROT = math.pi/4.0
-ROT_MAT = np.array([[np.cos(ROT), -np.sin(ROT)],[np.sin(ROT), np.cos(ROT)]])
 
-X = np.dot(ROT_MAT, X.T).T
 FEATURES = range(X.shape[1])#[0,1]#
 X = X[:,FEATURES]
 
 
-X = data_helper.unit_square_normalize(X)
+if X.shape[1] == 2:
+    ROT = math.pi/4.0
+    ROT_MAT = np.array([[np.cos(ROT), -np.sin(ROT)],[np.sin(ROT), np.cos(ROT)]])
+    X = np.dot(ROT_MAT, X.T).T
+
+#X = data_helper.unit_square_normalize(X)
 #X/=16
 X = data_helper.mean_center(X)
 
@@ -60,22 +63,6 @@ if X.shape[1] == 2:
     colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
     plt.scatter(X[:,0], X[:,1], color = colors)
     plt.show()
-
-
-
-
-
-NUM_TRAIN = int(0.9*X.shape[0])
-#np.random.seed(seed = 42)
-PERMUTE_INDS = np.random.permutation(np.arange(0, X.shape[0]))
-
-TRAIN_INDS = PERMUTE_INDS[:NUM_TRAIN]
-TEST_INDS = PERMUTE_INDS[NUM_TRAIN:]
-X_train = X[TRAIN_INDS]
-y_train = y[TRAIN_INDS]
-X_test = X[TEST_INDS]
-y_test = y[TEST_INDS]
-
 
 
 
@@ -96,7 +83,23 @@ ISSUE: globally optimized imprity trees may limit themselves by having certain n
     act as a leaf, or adding children if a leaf is not good enough to act as a leaf.
 '''
 
-head = global_impurity_tree_maker2.construct_logistic_tree(5, X.shape[1])#global_impurity_tree_maker2.construct_matrix_activation_logistic_tree(X.shape[1], TanH(), [3,3,3])#
+
+
+NUM_TRAIN = int(0.9*X.shape[0])
+#np.random.seed(seed = 42)
+PERMUTE_INDS = np.random.permutation(np.arange(0, X.shape[0]))
+
+TRAIN_INDS = PERMUTE_INDS[:NUM_TRAIN]
+TEST_INDS = PERMUTE_INDS[NUM_TRAIN:]
+X_train = X[TRAIN_INDS]
+y_train = y[TRAIN_INDS]
+X_test = X[TEST_INDS]
+y_test = y[TEST_INDS]
+
+
+
+
+#head = global_impurity_tree_maker2.construct_logistic_tree(5, X.shape[1])
 
 '''
 TODO: Experiment with fact that tree may naturally provide "more confident" regions (see leaf predicts vs. class predicts).
@@ -126,23 +129,35 @@ if X.shape[1] == 2:
     plt.show()
 
 
-model = GlobalImpurityModelTree2(head)
+
+def create_logistic_node_model(d):
+    #TODO: Change function names
+    x_shape = X.shape[1]
+    def dud_func(params_dict, k, X):
+        X_affine = data_helper.affine_X(X)
+        k_eq_0_out = stable_func.sigmoid(np.dot(X_affine, params_dict["theta"]))
+        return k_eq_0_out if k == 0 else 1-k_eq_0_out
+
+    def dud_grad_func(params_dict, k, X):
+        k_eq_0_out = dud_func(params_dict, 0, X)
+        X_affine = data_helper.affine_X(X)
+        grad_k_eq_0_out = (k_eq_0_out*(1-k_eq_0_out))[:,np.newaxis] * X_affine
+        return {"theta":grad_k_eq_0_out} if k == 0 else {"theta":-grad_k_eq_0_out}
+
+    params_dict = {"theta": 0.000001*(np.random.rand((x_shape + 1))-0.5)}
+    return NodeModel2(params_dict, dud_func, dud_grad_func)
+
+model = GlobalImpurityModelTree2(create_logistic_node_model)
 NUM_PROGRESS_ITERS = 25
 GRID_STEP = 0.005
 try:
     for display_progress_iter in range(NUM_PROGRESS_ITERS):
         try:
 
-            model.train(X_train, y_train, 20000, 5, print_progress_iters = 100)
+            model.train(X_train, y_train, 20000, 10, min_depth = 1, max_depth = 5, print_progress_iters = 100)
         except KeyboardInterrupt:
             print("display progress iter halted. Iters remaining: ", NUM_PROGRESS_ITERS - display_progress_iter)
         if X.shape[1] == 2:
-            ax = plt.gca()
-            bound_plotter.plot_contours(X, model.predict_leaves, ax, GRID_STEP)
-            colors = [["blue", "red", "green"][y[i]] for i in range(y.shape[0])]
-            plt.scatter(X[:,0], X[:,1], color = colors)
-            plt.title("leaf predictions")
-            plt.show()
 
             ax = plt.gca()
             bound_plotter.plot_contours(X, model.predict, ax, GRID_STEP)

@@ -9,23 +9,44 @@ class GlobalImpurityNode2:
         self._children = []
         self._model = model
         self._leaf_predict = None
-        self._leaf_id = None
 
 
-    def _predict(self, X, inds, predictions, predict_leaves):
+    '''
+    returns dictionary D s.t. D[node_obj] = A, a 1.d. numpy array of all
+        indices i s.t. X[i] falls through this node during the classification
+        process.
+
+    May want to do some rewriting in predict, given this does something fairly similar,
+    but is clunkier and would require predicting being moved into the
+    container class for the head, since only it "knows" about all leaves of
+    the model
+    '''
+    def _fill_node_ind_dict(self, dict, X, in_node_inds):
+        dict[self] = in_node_inds
         if self._is_leaf():
-            if predict_leaves:
-                predictions[inds] = self._leaf_id
-            else:
-                predictions[inds] = self._leaf_predict
             return None
+        inds_splits = self.__split(X, in_node_inds)
+        for child_num in range(len(self._children)):
+            self._children[child_num]._fill_node_ind_dict(dict, X, inds_splits[child_num])
+
+
+    def _predict(self, X, inds, predictions):
+        if self._is_leaf():
+            predictions[inds] = self._leaf_predict
+            return None
+        splits = self.__split(X, inds)
+        for child_num in range(len(self._children)):
+            self._children[child_num]._predict(X, splits[child_num], predictions)
+
+
+    def __split(self, X, inds):
         X_inds = X[inds]
         f_X_inds_outs = np.column_stack([self._model._f(k, X_inds) for k in range(len(self._children))])
-        children_assigns = np.argmax(f_X_inds_outs, axis = 1)
+        X_inds_assigned_child = np.argmax(f_X_inds_outs, axis = 1)
+        splits = []
         for child_num in range(len(self._children)):
-            where_children_assigns_eq_child_num = np.where(children_assigns == child_num)
-            inds_to_child = inds[where_children_assigns_eq_child_num]
-            self._children[child_num]._predict(X, inds_to_child, predictions, predict_leaves)
+            splits.append(inds[np.where(X_inds_assigned_child == child_num)])
+        return splits
 
 
     def add_children(self, *to_add):
@@ -70,5 +91,16 @@ class GlobalImpurityNode2:
     def _is_root(self):
         return self._parent is None
 
+    #is O(max depth) complexity.
+    def _depth(self):
+        if self._is_root():
+            return 0
+        return 1 + self._parent._depth()
+
     def _is_leaf(self):
-        return len(self._children) == 0
+        out = len(self._children) == 0
+        if out:
+            assert(self._model is None)
+        else:
+            assert(self._model is not None)
+        return out

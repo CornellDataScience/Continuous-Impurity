@@ -1,6 +1,6 @@
 import numpy as np
 
-def gini(groupings):
+def gini(*groupings):
     out = 0
     num_elems = 0
     for grouping in groupings:
