@@ -1,5 +1,6 @@
 import sklearn.datasets as datasets
 from model.impurity.global_impurity.global_impurity_model_tree2 import GlobalImpurityModelTree2
+import model.impurity.global_impurity.node_model2_maker as node_model2_maker
 from model.impurity.global_impurity.node_model2 import NodeModel2
 import toolbox.data_helper as data_helper
 import function.stable_func as stable_func
@@ -22,24 +23,7 @@ X /= 16.0
 
 (X_train, y_train), (X_test, y_test) = data_helper.train_test_split(X, y, 0.8, seed = 42)
 
-def model_creator(depth):
-    #TODO: Change function names
-    x_shape = X.shape[1]
-    def dud_func(params_dict, k, X):
-        X_affine = data_helper.affine_X(X)
-        k_eq_0_out = stable_func.sigmoid(np.dot(X_affine, params_dict["theta"]))
-        return k_eq_0_out if k == 0 else 1-k_eq_0_out
-
-    def dud_grad_func(params_dict, k, X):
-        k_eq_0_out = dud_func(params_dict, 0, X)
-        X_affine = data_helper.affine_X(X)
-        grad_k_eq_0_out = (k_eq_0_out*(1-k_eq_0_out))[:,np.newaxis] * X_affine
-        return {"theta":grad_k_eq_0_out} if k == 0 else {"theta":-grad_k_eq_0_out}
-
-    params_dict = {"theta": 0.000001*(np.random.rand((x_shape + 1))-0.5)}
-    return NodeModel2(params_dict, dud_func, dud_grad_func)
-
-mymodel = GlobalImpurityModelTree2(model_creator)
+mymodel = GlobalImpurityModelTree2(node_model2_maker.logistic_model_at_depth(X_train, y_train))
 try:
     mymodel.train(X_train, \
         y_train, \

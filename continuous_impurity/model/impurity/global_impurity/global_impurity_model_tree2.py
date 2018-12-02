@@ -30,6 +30,22 @@ class GlobalImpurityModelTree2:
         self.__head._predict(X, inds, predictions)
         return predictions
 
+    '''returns a vector y with shape (X.shape[0]) where y[i] is an int representing
+    #leaf that X[i] falls to. There is no guarantee that the same
+    #leaves will have the same int after any amount of training steps as
+    #pruning can change the entire structure of the tree. Useful during training
+    #to inspect what each leaf "does", and when after training to analyze the
+    #data distribution in the leaves (since the ids will be unchanging after training)
+    #rather than raw classifications.'''
+    def leaf_predict(self, X):
+        inds = np.arange(0,X.shape[0],1)
+        ind_subsets = self.__get_node_label_subsets(X, inds)
+        out = np.zeros(X.shape[0], dtype = np.int)
+        leaf_id = 0
+        for leaf in ind_subsets:
+            out[ind_subsets[leaf]] = leaf_id
+            leaf_id += 1
+        return out
 
     #TODO: add min_data_to_split to prevent overfitting
     def train(self, X, y, iters, learn_rate, min_depth = 1, max_depth = 10, min_gini_to_grow = 0.02, max_gini_to_prune = 0.02, print_progress_iters = 100):
@@ -65,6 +81,14 @@ class GlobalImpurityModelTree2:
 
 
     '''
+    TODO: Pruning a non-leaf if it has pretty good (but not perfect) GINI
+    may prevent leaves that do an excellent job at further working out the
+    small issues of the non-leaf from doing their thing. Basically, may
+    want to refine the non-leaf pruning process to be less simplistic, and
+    look at a candidate non-leaf to determine if its children are doing a good
+    job completely separating data (with some kind of way to prefer solutions
+    that aren't overfitting).
+
     Prune semantics:
         The following are addressed in the order of depth first search:
 
