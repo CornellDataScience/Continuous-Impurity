@@ -6,14 +6,6 @@ import model.impurity.global_impurity.global_impurity_tree_math2 as global_impur
 from performance.stopwatch_profiler import StopwatchProfiler
 
 
-
-'''
-HEUREISTIC THAT MIGHT HELP PREVENT MODEL FROM BASICALLY TRAINING GREEDILY:
-Don't let nodes assign data extremely high values for the split probabilities.
-This prevents a vanishing gradient problem (or helps to). Not sure how to
-accomplish this...
-
-'''
 class GlobalImpurityModelTree2:
     #could switch all dicts to an array indexed by node ID or a speedup?
 
@@ -48,7 +40,7 @@ class GlobalImpurityModelTree2:
         return out
 
     #TODO: add min_data_to_split to prevent overfitting
-    def train(self, X, y, iters, learn_rate, min_depth = 1, max_depth = 10, min_gini_to_grow = 0.02, max_gini_to_prune = 0.02, print_progress_iters = 100):
+    def train(self, X, y, iters, learn_rate, probabilistic_leaf = True, min_depth = 1, max_depth = 10, min_gini_to_grow = 0.02, max_gini_to_prune = 0.02, min_data_to_split = 5, print_progress_iters = 100):
         unique_labels = np.unique(y)
         where_y_eq_ls = []
         for l in unique_labels:
@@ -59,11 +51,11 @@ class GlobalImpurityModelTree2:
             leaves = self.__head._get_leaves()
             global_impurity_tree_math2.take_gradient_descent_step(self.__head, X, y, learn_rate, unique_labels, where_y_eq_ls, leaves, nonleaves)
 
-            self.__prune(X, y, unique_labels, self.__get_node_label_subsets(X,y), min_depth, max_depth, \
-                min_gini_to_grow, max_gini_to_prune)
+            self.__prune(X, y, unique_labels, probabilistic_leaf, self.__get_node_label_subsets(X,y), min_depth, max_depth, \
+                min_gini_to_grow, max_gini_to_prune, min_data_to_split)
 
             if iter % print_progress_iters == 0:
-                self.__print_performance(iter, X, y, unique_labels)
+                self.__print_performance(iter, X, y, unique_labels, probabilistic_leaf)
 
 
 
@@ -115,7 +107,7 @@ class GlobalImpurityModelTree2:
 
         - may want to see if pruning using actual GINI or expected GINI is better
     '''
-    def __prune(self, X, y, unique_labels, node_label_subsets, min_depth, max_depth, min_gini_to_grow, max_gini_to_prune):
+    def __prune(self, X, y, unique_labels, probabilistic_leaf, node_label_subsets, min_depth, max_depth, min_gini_to_grow, max_gini_to_prune, min_data_to_split):
         def grow_leaf(node, node_depth):
             assert(node._is_leaf())
             node._model = self.__model_at_depth_func(node_depth)
@@ -134,7 +126,13 @@ class GlobalImpurityModelTree2:
         def dfs_prune(node, node_depth):
             node_labels = node_label_subsets[node]
             #not sure how to handle when len(node_labels) == 0... TODO: IMPORTANT
-            if len(node_labels) != 0:
+            if node_labels.shape[0] < min_data_to_split:
+                #case 2
+                if not node._is_leaf():
+                    prune_nonleaf(node)
+                    return None
+                #not sure what to do when node_labels.shape[0] < min_data_to_split but node is leaf
+            else:
                 node_gini = impurity.gini(node_labels)
                 if node._is_leaf():
                     #case 3)
@@ -151,6 +149,28 @@ class GlobalImpurityModelTree2:
             for child in node._children:
                 dfs_prune(child, node_depth + 1)
 
+
+
+
+            '''
+            if len(node_labels) != 0:
+                node_gini = impurity.gini(node_labels)
+                if node._is_leaf():
+                    #case 3)
+                    if node_depth < max_depth and (node_gini > min_gini_to_grow or node_depth < min_depth):
+                        grow_leaf(node, node_depth)
+                    return None
+                #case 1)
+                elif node_gini < max_gini_to_prune:
+                    #prune by case 1
+                    prune_nonleaf(node)
+                    return None
+
+            #no pruning required. Prune children.
+            for child in node._children:
+                dfs_prune(child, node_depth + 1)
+            '''
+
         dfs_prune(self.__head, 0)
 
 
@@ -158,10 +178,15 @@ class GlobalImpurityModelTree2:
 
         #needs to reassign leaves classes since may have pruned grown a leaf
         #or added new children
-        self.__assign_leaves_classes(X, y, unique_labels, True)
+        self.__assign_leaves_classes(X, y, unique_labels, probabilistic_leaf)
 
 
+    #add a mode to do this by examining all data that falls into the parent,
+    #and using ONLY that subset to probabilistically assign leaf values to
+    #children
 
+    #this will fix uncofident regions basically being assigned whatever the
+    #most frequent point is???
     def __assign_leaves_classes(self, X, y, unique_labels, probabilistically):
         if probabilistically:
             p_dict = global_impurity_tree_math2.calc_p_dict(self.__head, X)
@@ -175,6 +200,13 @@ class GlobalImpurityModelTree2:
                 leaves[leaf_ind]._leaf_predict = unique_labels[max_leaf_label_scores[leaf_ind]]
 
         else:
+            node_label_subsets = self.__get_node_label_subsets(X, y)
+            for leaf in self.__head._get_leaves():
+                leaf_labels = node_label_subsets[leaf]
+                unq, counts = np.unique(leaf_labels, return_counts = True)
+                leaf._leaf_predict = -1 if len(unq) == 0 else unq[np.argmax(counts)]
+
+            '''
             #TODO: Fix non-probabilistic leaf assigns now that pruning should be working
             leaves = self.__head._get_leaves()
             leaf_predicts = self.predict_leaves(X)
@@ -182,10 +214,11 @@ class GlobalImpurityModelTree2:
                 y_where_leaf_predicts_eq_id = y[np.where(leaf_predicts == leaf._leaf_id)]
                 unq, counts = np.unique(y_where_leaf_predicts_eq_id, return_counts = True)
                 leaf._leaf_predict = -1 if len(unq) == 0 else unq[np.argmax(counts)]
+            '''
 
 
-    def __print_performance(self, iter, X, y, unique_labels):
-        self.__assign_leaves_classes(X, y, unique_labels, True)
+    def __print_performance(self, iter, X, y, unique_labels, probabilistic_leaf):
+        self.__assign_leaves_classes(X, y, unique_labels, probabilistic_leaf)
         print("iter: ", iter)
         p_dict = global_impurity_tree_math2.calc_p_dict(self.__head, X)
         leaves = self.__head._get_leaves()

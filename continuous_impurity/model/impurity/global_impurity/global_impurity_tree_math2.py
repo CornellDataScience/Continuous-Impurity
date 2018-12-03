@@ -100,7 +100,7 @@ def __v(p_dict_sum_k_where_y_eq_ls):
     return out
 
 def __grad_u(p_dict_sum_k, grad_p_dict_sum_k):
-    denominator = np.square(p_dict_sum_k)
+    denominator = p_dict_sum_k*p_dict_sum_k
     out = {}
     for param in grad_p_dict_sum_k:
         out[param] = -grad_p_dict_sum_k[param]/denominator

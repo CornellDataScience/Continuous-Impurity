@@ -7,4 +7,4 @@ class TanH(ActivationFunction):
         return stable_func.tanh(X)
 
     def derivative_wrt_activation(self, act_outs):
-        return 1-(np.square(act_outs))
+        return 1-(act_outs * act_outs)

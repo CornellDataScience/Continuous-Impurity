@@ -6,16 +6,19 @@ import toolbox.data_helper as data_helper
 import function.stable_func as stable_func
 import numpy as np
 from sklearn import tree
+from function.activation.tanh import TanH
+from function.activation.identity import Identity
 
 MYMODEL_HYPERPARAMS = {"iters": 100000, \
-    "learn_rate": 10, \
+    "learn_rate": 2.5, \
+    "probabilistic_leaf": True,\
     "min_depth": 1, \
     "max_depth": 5, \
     "print_progress_iters": 25, \
     "min_gini_to_grow": .02, \
     "max_gini_to_prune":.02}
 
-DECISIONTREE_HYPERPARAMS = {"max_depth": 10}
+DECISIONTREE_HYPERPARAMS = {"max_depth": 5}
 
 X,y = datasets.load_digits(return_X_y = True)
 X = X.astype(np.float64)
@@ -23,12 +26,24 @@ X /= 16.0
 
 (X_train, y_train), (X_test, y_test) = data_helper.train_test_split(X, y, 0.8, seed = 42)
 
-mymodel = GlobalImpurityModelTree2(node_model2_maker.logistic_model_at_depth(X_train, y_train))
+
+def pw(d):
+    if d <= 4:
+        return node_model2_maker.logistic_model_at_depth(X_train.shape[1])(d)
+    return node_model2_maker.matrix_activation_logistic_impurity_model_at_depth(\
+        X_train.shape[1], lambda x: TanH(), lambda x: 3)(d)
+
+
+
+#mymodel = GlobalImpurityModelTree2(node_model2_maker.logistic_model_at_depth(X_train.shape[1]))
+mymodel = GlobalImpurityModelTree2(pw)
+
 try:
     mymodel.train(X_train, \
         y_train, \
         MYMODEL_HYPERPARAMS["iters"], \
         MYMODEL_HYPERPARAMS["learn_rate"], \
+        probabilistic_leaf = MYMODEL_HYPERPARAMS["probabilistic_leaf"],\
         min_depth = MYMODEL_HYPERPARAMS["min_depth"], \
         max_depth = MYMODEL_HYPERPARAMS["max_depth"], \
         print_progress_iters = MYMODEL_HYPERPARAMS["print_progress_iters"], \

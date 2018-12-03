@@ -34,8 +34,8 @@ import math
 
 
 #X,y =  datasets.make_classification(n_samples = 200, n_features=2, n_redundant=0, n_informative=2,random_state=2, n_clusters_per_class=2)
-#X,y = datasets.load_digits(return_X_y = True)#datasets.load_iris(return_X_y = True)#datasets.load_breast_cancer(return_X_y = True)#datasets.make_moons()#
-X, y = data_maker.create_rect_simple()
+X,y = datasets.load_iris(return_X_y = True)#datasets.load_digits(return_X_y = True)#datasets.load_breast_cancer(return_X_y = True)#datasets.make_moons()#
+#X, y = data_maker.create_rect_simple()
 X = X.astype(np.float64)
 
 
@@ -85,7 +85,7 @@ ISSUE: globally optimized imprity trees may limit themselves by having certain n
 
 
 
-NUM_TRAIN = int(0.9*X.shape[0])
+NUM_TRAIN = int(0.8*X.shape[0])
 #np.random.seed(seed = 42)
 PERMUTE_INDS = np.random.permutation(np.arange(0, X.shape[0]))
 
@@ -115,7 +115,7 @@ TODO (BIGGEST PROBLEM WITH GLOBAL IMPURITY TREE): Appears that issue is split fu
 '''
 
 
-dec_tree = tree.DecisionTreeClassifier(max_depth = 4)
+dec_tree = tree.DecisionTreeClassifier(max_depth = 3)
 dec_tree = dec_tree.fit(X_train, y_train)
 dec_tree_predictions = dec_tree.predict(X_test)
 dec_tree_right = np.sum(dec_tree_predictions == y_test)
@@ -154,7 +154,7 @@ try:
     for display_progress_iter in range(NUM_PROGRESS_ITERS):
         try:
 
-            model.train(X_train, y_train, 20000, 10, min_depth = 1, max_depth = 5, print_progress_iters = 100)
+            model.train(X_train, y_train, 20000, 10, min_depth = 1, max_depth = 3, print_progress_iters = 100)
         except KeyboardInterrupt:
             print("display progress iter halted. Iters remaining: ", NUM_PROGRESS_ITERS - display_progress_iter)
         if X.shape[1] == 2:
