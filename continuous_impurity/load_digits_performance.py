@@ -7,6 +7,7 @@ import function.stable_func as stable_func
 import numpy as np
 from sklearn import tree
 from function.activation.tanh import TanH
+import timeit
 from function.activation.identity import Identity
 
 MYMODEL_HYPERPARAMS = {"iters": 100000, \
@@ -27,18 +28,21 @@ X /= 16.0
 (X_train, y_train), (X_test, y_test) = data_helper.train_test_split(X, y, 0.8, seed = 42)
 
 
+
+
+
+mymodel = GlobalImpurityModelTree2(node_model2_maker.logistic_model_at_depth(X_train.shape[1]))
+'''
 def pw(d):
     if d <= 4:
         return node_model2_maker.logistic_model_at_depth(X_train.shape[1])(d)
     return node_model2_maker.matrix_activation_logistic_impurity_model_at_depth(\
         X_train.shape[1], lambda x: TanH(), lambda x: 3)(d)
 
-
-
-#mymodel = GlobalImpurityModelTree2(node_model2_maker.logistic_model_at_depth(X_train.shape[1]))
 mymodel = GlobalImpurityModelTree2(pw)
-
+'''
 try:
+
     mymodel.train(X_train, \
         y_train, \
         MYMODEL_HYPERPARAMS["iters"], \

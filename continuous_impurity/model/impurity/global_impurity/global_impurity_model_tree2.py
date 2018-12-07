@@ -4,6 +4,7 @@ import toolbox.numpy_helper as numpy_helper
 import function.impurity as impurity
 import model.impurity.global_impurity.global_impurity_tree_math2 as global_impurity_tree_math2
 from performance.stopwatch_profiler import StopwatchProfiler
+import timeit
 
 
 class GlobalImpurityModelTree2:
@@ -46,13 +47,31 @@ class GlobalImpurityModelTree2:
         for l in unique_labels:
             where_y_eq_ls.append(np.where(y == l))
 
+
+
+        stopwatch = StopwatchProfiler()
+
+
         for iter in range(iters):
             nonleaves = self.__head._get_nonleaves()
             leaves = self.__head._get_leaves()
+
+
+            stopwatch.start()
+
+
             global_impurity_tree_math2.take_gradient_descent_step(self.__head, X, y, learn_rate, unique_labels, where_y_eq_ls, leaves, nonleaves)
+            stopwatch.lap("grad descent step taken")
+
+
 
             self.__prune(X, y, unique_labels, probabilistic_leaf, self.__get_node_label_subsets(X,y), min_depth, max_depth, \
                 min_gini_to_grow, max_gini_to_prune, min_data_to_split)
+
+            stopwatch.lap("tree pruned")
+            stopwatch.stop()
+            print("rel train_iter lap deltas: ", stopwatch.relative_lap_deltas())
+            stopwatch.reset()
 
             if iter % print_progress_iters == 0:
                 self.__print_performance(iter, X, y, unique_labels, probabilistic_leaf)
