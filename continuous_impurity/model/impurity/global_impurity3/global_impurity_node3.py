@@ -44,6 +44,10 @@ class GlobalImpurityNode3:
         nodes = GlobalImpurityNode3.to_list_and_set_IDs(self)
         leaves = GlobalImpurityNode3.get_leaves(nodes)
         unique_labels = np.unique(y)
+        where_y_eq_ls = []
+        for l in unique_labels:
+            where_y_eq_ls.append(np.where(y == l))
+
         for iter in range(n_iters):
             if GC_frequency is not None and iter%GC_frequency == 0:
                 gc.collect()
@@ -51,7 +55,7 @@ class GlobalImpurityNode3:
             f_arr = GlobalImpurityNode3.calc_f_arr(nodes, X)
             grad_f_arr = GlobalImpurityNode3.calc_grad_f_arr(nodes, X, f_arr)
             p_arr = GlobalImpurityNode3.calc_p_arr(nodes, X, f_arr)
-            grad_EG = GlobalImpurityNode3.calc_grad(X, y, unique_labels, nodes, leaves, f_arr, p_arr, grad_f_arr)
+            grad_EG = GlobalImpurityNode3.calc_grad(X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr)
 
             for node_ID in range(len(grad_EG)):
                 if grad_EG[node_ID] is not None:
@@ -75,7 +79,7 @@ class GlobalImpurityNode3:
 
     #returns grad expected impurity of the whole tree w.r.t. all parameters of
     #node q
-    def calc_grad(X, y, unique_labels, nodes, leaves, f_arr, p_arr, grad_f_arr):
+    def calc_grad(X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr):
         grad_EG = [None for i in range(len(nodes))]
         for q in nodes:
             grad_EG[q._ID] = None if q.__model is None else \
@@ -84,19 +88,47 @@ class GlobalImpurityNode3:
 
 
 
+
         for k in leaves:
             k_ID = k._ID
             assert(k_ID is not None)
             p_ks = p_arr[k_ID]
             grad_p_ks = GlobalImpurityNode3.calc_grad_p_arr(nodes, k_ID, p_arr, f_arr, grad_f_arr)
-            u_k = GlobalImpurityNode3.__calc_u(p_ks)
-            v_k = GlobalImpurityNode3.__calc_v(p_ks, y, unique_labels)
+
+
+            p_sums_where_y_eq_ls = np.zeros(len(where_y_eq_ls))
+            for y_eq_l_ind in range(len(where_y_eq_ls)):
+                p_sums_where_y_eq_ls[y_eq_l_ind] = np.sum(p_ks[where_y_eq_ls[y_eq_l_ind]])
+
+            p_sum = np.sum(p_sums_where_y_eq_ls)
+
+
+
+
+            u_k = GlobalImpurityNode3.__calc_u(p_sum)
+            v_k = GlobalImpurityNode3.__calc_v(p_sums_where_y_eq_ls)
 
 
 
             for (q_ID, grad_q) in grad_p_ks:
-                grad_u_k = GlobalImpurityNode3.__calc_grad_u(p_ks, grad_q)
-                grad_v_k = GlobalImpurityNode3.__calc_grad_v(p_ks, grad_q, y, unique_labels)
+
+                grad_q_sums = []
+                grad_q_sums_where_y_eq_ls = []
+                for param_ind in range(len(grad_q)):
+                    iter_add = np.zeros((len(where_y_eq_ls),) + grad_q[param_ind].shape[1:])
+                    for l_ind in range(len(where_y_eq_ls)):
+                        iter_add[l_ind] = np.sum(grad_q[param_ind][where_y_eq_ls[l_ind]], axis = 0)
+
+
+                    grad_q_sums.append(np.sum(iter_add, axis = 0))
+                    grad_q_sums_where_y_eq_ls.append(iter_add)
+
+
+
+
+
+                grad_u_k = GlobalImpurityNode3.__calc_grad_u(p_sum, grad_q_sums)
+                grad_v_k = GlobalImpurityNode3.__calc_grad_v(p_sums_where_y_eq_ls, grad_q_sums_where_y_eq_ls)#GlobalImpurityNode3.__calc_grad_v(p_sums_where_y_eq_ls, grad_q, y, unique_labels)#
 
                 for param_ind in range(len(grad_EG[q_ID])):
                     grad_EG[q_ID][param_ind] -=  (v_k*grad_u_k[param_ind] + \
@@ -105,35 +137,34 @@ class GlobalImpurityNode3:
         return grad_EG
 
 
-    def __calc_u(p_ks):
-        return 1.0/np.sum(p_ks, axis = 0)
+    def __calc_u(p_k_sum):
+        return 1.0/p_k_sum
+
+    def __calc_v(p_sums_where_y_eq_ls):
+        return np.sum(np.square(p_sums_where_y_eq_ls))
 
 
-    def __calc_v(p_ks, y, unique_labels):
-        out = 0
-        for l in unique_labels:
-            where_y_eq_l = np.where(y == l)
-            sqrt_plus = np.sum(p_ks[where_y_eq_l])
-            out += sqrt_plus*sqrt_plus
-        return out
-
-    def __calc_grad_u(p_ks, grad_p_ks):
+    def __calc_grad_u(p_sum, grad_p_sums):
         out = []
-        denominator = np.square(np.sum(p_ks))
-        for param_grad in grad_p_ks:
-            numerator = -np.sum(param_grad, axis = 0)
+        denominator = p_sum*p_sum
+        for param_grad_sum in grad_p_sums:
+            numerator = -param_grad_sum
             out.append(numerator/denominator)
         return out
 
-    def __calc_grad_v(p_ks, grad_p_ks, y, unique_labels):
+
+
+
+    def __calc_grad_v(p_sums_where_y_eq_ls, grad_p_sums_where_y_eq_ls):
         out = []
 
-        for param_grad in grad_p_ks:
+        for param_grad_sums in grad_p_sums_where_y_eq_ls:
             v_param = 0
-            for l in unique_labels:
-                where_y_eq_l = np.where(y == l)
-                left = np.sum(p_ks[where_y_eq_l])
-                right = np.sum(param_grad[where_y_eq_l], axis = 0)
+            for l_ind in range(len(param_grad_sums)):
+                #l = unique_labels[l_ind]
+                #where_y_eq_l = np.where(y == l)
+                left = p_sums_where_y_eq_ls[l_ind]#np.sum(p_ks[where_y_eq_l])
+                right = param_grad_sums[l_ind]#np.sum(param_grad[where_y_eq_l], axis = 0)
                 v_param += left*right
 
             v_param *= 2.0

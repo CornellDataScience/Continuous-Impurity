@@ -5,12 +5,13 @@ import toolbox.data_helper as data_helper
 import timeit
 import numpy as np
 
+np.random.seed(seed = 42)
 X,y = datasets.load_digits(return_X_y = True)#datasets.load_iris(return_X_y = True)#
 FEATURES = range(X.shape[1])#[0,1]
 X = X[:, FEATURES]
 X = X.astype(np.float64)
 X/=16.0
-NUM_POINTS = X.shape[0]//4
+NUM_POINTS = X.shape[0]//8
 
 X = X[0:NUM_POINTS,:]
 y = y[:NUM_POINTS]
