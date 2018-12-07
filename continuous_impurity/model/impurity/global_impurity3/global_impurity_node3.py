@@ -1,7 +1,7 @@
 import numpy as np
 import toolbox.numpy_helper as numpy_helper
 import function.impurity as impurity
-
+import gc
 
 
 
@@ -40,11 +40,13 @@ class GlobalImpurityNode3:
             nodes[i]._ID = i
 
 
-    def train(self, X, y, learn_rate, n_iters, print_progress_iters = 25):
+    def train(self, X, y, learn_rate, n_iters, print_progress_iters = 25, GC_frequency = None):
         nodes = GlobalImpurityNode3.to_list_and_set_IDs(self)
         leaves = GlobalImpurityNode3.get_leaves(nodes)
         unique_labels = np.unique(y)
         for iter in range(n_iters):
+            if GC_frequency is not None and iter%GC_frequency == 0:
+                gc.collect()
 
             f_arr = GlobalImpurityNode3.calc_f_arr(nodes, X)
             grad_f_arr = GlobalImpurityNode3.calc_grad_f_arr(nodes, X, f_arr)
@@ -52,7 +54,6 @@ class GlobalImpurityNode3:
             grad_EG = GlobalImpurityNode3.calc_grad(X, y, unique_labels, nodes, leaves, f_arr, p_arr, grad_f_arr)
 
             for node_ID in range(len(grad_EG)):
-                #make sure pointers allow this to work without issue
                 if grad_EG[node_ID] is not None:
                     for param_ind in range(len(grad_EG[node_ID])):
                         nodes[node_ID].__model._params[param_ind] -= learn_rate*grad_EG[node_ID][param_ind]
@@ -61,6 +62,9 @@ class GlobalImpurityNode3:
             if iter%print_progress_iters == 0:
                 print("EXPECTED GINI: ", GlobalImpurityNode3.__expected_GINI(leaves, p_arr, y))
                 print("----------------------------------")
+
+
+
 
 
     def __expected_GINI(leaves, p_arr, y):
@@ -85,31 +89,19 @@ class GlobalImpurityNode3:
             assert(k_ID is not None)
             p_ks = p_arr[k_ID]
             grad_p_ks = GlobalImpurityNode3.calc_grad_p_arr(nodes, k_ID, p_arr, f_arr, grad_f_arr)
-
-            #print("grad_p_ks: ", grad_p_ks)
-
             u_k = GlobalImpurityNode3.__calc_u(p_ks)
             v_k = GlobalImpurityNode3.__calc_v(p_ks, y, unique_labels)
 
 
 
             for (q_ID, grad_q) in grad_p_ks:
-                #print("q_ID: ", q_ID)
-                #print("grad_q: ", grad_q)
                 grad_u_k = GlobalImpurityNode3.__calc_grad_u(p_ks, grad_q)
                 grad_v_k = GlobalImpurityNode3.__calc_grad_v(p_ks, grad_q, y, unique_labels)
-
-                #print("u_k: ", u_k)
-                #print("grad_u_k: ", grad_u_k)
-                #print("v_k: ", v_k)
-                #print("grad_v_k: ", grad_v_k)
-
 
                 for param_ind in range(len(grad_EG[q_ID])):
                     grad_EG[q_ID][param_ind] -=  (v_k*grad_u_k[param_ind] + \
                         u_k*grad_v_k[param_ind])/float(X.shape[0])
 
-        #print("grad eg: ", grad_EG)
         return grad_EG
 
 
@@ -200,12 +192,9 @@ class GlobalImpurityNode3:
         out = []
         p_leaf = p_arr[leaf_ID]
         q = nodes[leaf_ID].__parent
-        #print("f_arr: ", f_arr)
-        #print("p_arr: ", p_arr)
         q_c = nodes[leaf_ID]
         while q is not None:
             q_c_ind = q.__child_ind(q_c)
-            #print("q_c_ind: ", q_c_ind)
             f_q_c = f_arr[q._ID][q_c_ind]
             grad_f_q = grad_f_arr[q._ID]
             iter_out = []
