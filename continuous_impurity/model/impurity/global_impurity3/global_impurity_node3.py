@@ -11,9 +11,9 @@ class GlobalImpurityNode3:
     def __init__(self, parent, model, children = []):
         self.__parent = parent
         self.__children = children
-        self.__model = model
+        self._model = model
         self._ID = None
-        self.__leaf_predict = None
+        self._leaf_predict = None
 
 
     def to_list_and_set_IDs(head):
@@ -42,51 +42,7 @@ class GlobalImpurityNode3:
             nodes[i]._ID = i
 
 
-    def train(self, X, y, learn_rate, n_iters, print_progress_iters = 25, GC_frequency = None):
-        nodes = GlobalImpurityNode3.to_list_and_set_IDs(self)
-        leaves = GlobalImpurityNode3.get_leaves(nodes)
-        unique_labels = np.unique(y)
-        where_y_eq_ls = []
-        for l in unique_labels:
-            where_y_eq_ls.append(np.where(y == l))
 
-        for iter in range(n_iters):
-            if GC_frequency is not None and iter%GC_frequency == 0:
-                gc.collect()
-
-            f_arr = GlobalImpurityNode3.calc_f_arr(nodes, X)
-            grad_f_arr = GlobalImpurityNode3.calc_grad_f_arr(nodes, X, f_arr)
-            p_arr = GlobalImpurityNode3.calc_p_arr(nodes, X, f_arr)
-            grad_EG = GlobalImpurityNode3.calc_grad(X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr)
-
-            for node_ID in range(len(grad_EG)):
-                if grad_EG[node_ID] is not None:
-                    for param_ind in range(len(grad_EG[node_ID])):
-                        nodes[node_ID].__model._params[param_ind] -= learn_rate*grad_EG[node_ID][param_ind]
-
-
-            if iter%print_progress_iters == 0:
-                print("iter: ", iter)
-                self.__print_progress(leaves, p_arr, X, y, unique_labels)
-
-
-    def __print_progress(self, leaves, p_arr, X, y, unique_labels):
-        GlobalImpurityNode3.__set_leaf_predicts(leaves, p_arr, y, unique_labels)
-        predictions = self.predict(X)
-        unq, counts = np.unique(predictions, return_counts = True)
-        print("label distribution: ", [(unq[i], counts[i]) for i in range(len(unq))])
-        print("ACCURACY: ", 100.0*np.sum(predictions == y)/float(y.shape[0]))
-        print("EXPECTED GINI: ", GlobalImpurityNode3.__expected_GINI(leaves, p_arr, y))
-        print("----------------------------------")
-
-    def __set_leaf_predicts(leaves, p_arr, y, unique_labels):
-        for leaf in leaves:
-            p_leaf = p_arr[leaf._ID]
-            l_scores = np.zeros(unique_labels.shape[0])
-            for l_ind in range(len(unique_labels)):
-                where_y_eq_l = np.where(y == unique_labels[l_ind])
-                l_scores[l_ind] = np.sum(p_leaf[where_y_eq_l])
-            leaf.__leaf_predict = unique_labels[np.argmax(l_scores)]
 
 
     def predict(self, X):
@@ -98,8 +54,8 @@ class GlobalImpurityNode3:
 
     def __predict(self, X, predictions, inds):
         if self.__is_leaf():
-            assert(self.__leaf_predict is not None)
-            predictions[inds] = self.__leaf_predict
+            assert(self._leaf_predict is not None)
+            predictions[inds] = self._leaf_predict
             return None
         splits = self.__split(X, inds)
         for child_ind in range(len(splits)):
@@ -114,12 +70,6 @@ class GlobalImpurityNode3:
         for child_num in range(len(self.__children)):
             out.append(inds[np.where(split_inds_assign == child_num)])
         return tuple(out)
-
-    def __expected_GINI(leaves, p_arr, y):
-        subset_assign_probs = np.zeros((y.shape[0], len(leaves)))
-        for leaf_ind in range(len(leaves)):
-            subset_assign_probs[:,leaf_ind] = p_arr[leaves[leaf_ind]._ID]
-        return impurity.expected_gini(subset_assign_probs, y)
 
     #returns grad expected impurity of the whole tree w.r.t. all parameters of
     #node q
@@ -146,8 +96,8 @@ class GlobalImpurityNode3:
         def init_grad_EG():
             grad_EG = [None for i in range(len(nodes))]
             for q in nodes:
-                grad_EG[q._ID] = None if q.__model is None else \
-                    [np.zeros(q_param.shape, dtype = q_param.dtype) for q_param in q.__model._params]
+                grad_EG[q._ID] = None if q._model is None else \
+                    [np.zeros(q_param.shape, dtype = q_param.dtype) for q_param in q._model._params]
             return tuple(grad_EG)
 
         grad_EG = init_grad_EG()
@@ -230,10 +180,10 @@ class GlobalImpurityNode3:
 
 
     def f(self, X):
-        return self.__model._f(X)
+        return self._model._f(X)
 
     def grad_f(self, X, f_outs):
-        return self.__model._grad_f(X, f_outs)
+        return self._model._grad_f(X, f_outs)
 
     def calc_f_arr(nodes, X):
         out = [None for i in range(len(nodes))]
@@ -319,7 +269,7 @@ class GlobalImpurityNode3:
     def __is_leaf(self):
         is_leaf = len(self.__children) == 0
         if is_leaf:
-            assert(self.__model is None)
+            assert(self._model is None)
         return is_leaf
 
 

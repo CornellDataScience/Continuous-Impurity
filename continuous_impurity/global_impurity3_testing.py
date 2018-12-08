@@ -4,6 +4,7 @@ import sklearn.datasets as datasets
 import toolbox.data_helper as data_helper
 import timeit
 import numpy as np
+from model.impurity.global_impurity3.global_impurity_model_tree3 import GlobalImpurityModelTree3
 
 np.random.seed(seed = 42)
 X,y = datasets.load_digits(return_X_y = True)#datasets.load_iris(return_X_y = True)#
@@ -31,8 +32,8 @@ def make_tree(model_maker, max_depth):
     f(head, 1)
     return head
 
-tree = make_tree(node_model3_maker.logistic_model_at_depth(X.shape[1]), 7)
-
+head = make_tree(node_model3_maker.logistic_model_at_depth(X.shape[1]), 7)
+tree = GlobalImpurityModelTree3(head)
 
 
 tree.train(X, y, 15.0, 100000, GC_frequency = None)
