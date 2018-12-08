@@ -25,7 +25,7 @@ class GlobalImpurityModelTree3:
             f_arr = GlobalImpurityNode3.calc_f_arr(nodes, X)
             grad_f_arr = GlobalImpurityNode3.calc_grad_f_arr(nodes, X, f_arr)
             p_arr = GlobalImpurityNode3.calc_p_arr(nodes, X, f_arr)
-            grad_EG = GlobalImpurityNode3.calc_grad(X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr)
+            grad_EG = self.__head._calc_grad(X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr)
 
             for node_ID in range(len(grad_EG)):
                 if grad_EG[node_ID] is not None:
@@ -37,7 +37,7 @@ class GlobalImpurityModelTree3:
                 print("iter: ", iter)
                 self.__print_progress(leaves, p_arr, X, y, unique_labels)
 
-        #TODO: need to set leaf predicts after training
+        '''TODO: need to set leaf predicts after training'''
 
     def __print_progress(self, leaves, p_arr, X, y, unique_labels):
         self.__set_leaf_predicts(leaves, p_arr, y, unique_labels)
