@@ -11,7 +11,7 @@ FEATURES = range(X.shape[1])#[0,1]
 X = X[:, FEATURES]
 X = X.astype(np.float64)
 X/=16.0
-NUM_POINTS = X.shape[0]//8
+NUM_POINTS = X.shape[0]
 
 X = X[0:NUM_POINTS,:]
 y = y[:NUM_POINTS]
@@ -31,8 +31,8 @@ def make_tree(model_maker, max_depth):
     f(head, 1)
     return head
 
-tree = make_tree(node_model3_maker.logistic_model_at_depth(X.shape[1]), 5)
+tree = make_tree(node_model3_maker.logistic_model_at_depth(X.shape[1]), 7)
 
 
 
-tree.train(X, y, 2.5, 100000, GC_frequency = None)
+tree.train(X, y, 15.0, 100000, GC_frequency = None)

@@ -2,6 +2,7 @@ import numpy as np
 import toolbox.numpy_helper as numpy_helper
 import function.impurity as impurity
 import gc
+from performance.stopwatch_profiler import StopwatchProfiler
 
 
 
@@ -12,6 +13,7 @@ class GlobalImpurityNode3:
         self.__children = children
         self.__model = model
         self._ID = None
+        self.__leaf_predict = None
 
 
     def to_list_and_set_IDs(head):
@@ -64,12 +66,54 @@ class GlobalImpurityNode3:
 
 
             if iter%print_progress_iters == 0:
-                print("EXPECTED GINI: ", GlobalImpurityNode3.__expected_GINI(leaves, p_arr, y))
-                print("----------------------------------")
+                print("iter: ", iter)
+                self.__print_progress(leaves, p_arr, X, y, unique_labels)
 
 
+    def __print_progress(self, leaves, p_arr, X, y, unique_labels):
+        GlobalImpurityNode3.__set_leaf_predicts(leaves, p_arr, y, unique_labels)
+        predictions = self.predict(X)
+        unq, counts = np.unique(predictions, return_counts = True)
+        print("label distribution: ", [(unq[i], counts[i]) for i in range(len(unq))])
+        print("ACCURACY: ", 100.0*np.sum(predictions == y)/float(y.shape[0]))
+        print("EXPECTED GINI: ", GlobalImpurityNode3.__expected_GINI(leaves, p_arr, y))
+        print("----------------------------------")
+
+    def __set_leaf_predicts(leaves, p_arr, y, unique_labels):
+        for leaf in leaves:
+            p_leaf = p_arr[leaf._ID]
+            l_scores = np.zeros(unique_labels.shape[0])
+            for l_ind in range(len(unique_labels)):
+                where_y_eq_l = np.where(y == unique_labels[l_ind])
+                l_scores[l_ind] = np.sum(p_leaf[where_y_eq_l])
+            leaf.__leaf_predict = unique_labels[np.argmax(l_scores)]
 
 
+    def predict(self, X):
+        inds = np.arange(0, X.shape[0], 1)
+        predictions = np.zeros(X.shape[0], dtype = np.int)
+        self.__predict(X, predictions, inds)
+        return predictions
+
+
+    def __predict(self, X, predictions, inds):
+        if self.__is_leaf():
+            assert(self.__leaf_predict is not None)
+            predictions[inds] = self.__leaf_predict
+            return None
+        splits = self.__split(X, inds)
+        for child_ind in range(len(splits)):
+            self.__children[child_ind].__predict(X, predictions, splits[child_ind])
+
+
+    def __split(self, X, inds):
+        f_inds_out = self.f(X[inds])
+        split_inds_assign = np.argmax(f_inds_out, axis = 0)
+        #print("split_inds_assign: ", split_inds_assign)
+        out = []
+        for child_num in range(len(self.__children)):
+            out.append(inds[np.where(split_inds_assign == child_num)])
+        return tuple(out)
 
     def __expected_GINI(leaves, p_arr, y):
         subset_assign_probs = np.zeros((y.shape[0], len(leaves)))
@@ -80,30 +124,48 @@ class GlobalImpurityNode3:
     #returns grad expected impurity of the whole tree w.r.t. all parameters of
     #node q
     def calc_grad(X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr):
-        grad_EG = [None for i in range(len(nodes))]
-        for q in nodes:
-            grad_EG[q._ID] = None if q.__model is None else \
-                [np.zeros(q_param.shape, dtype = q_param.dtype) for q_param in q.__model._params]
-        grad_EG = tuple(grad_EG)
 
+        def calc_p_and_p_sums(p_ks):
+            p_sums_where_y_eq_ls = np.zeros(len(where_y_eq_ls))
+            for y_eq_l_ind in range(len(where_y_eq_ls)):
+                p_sums_where_y_eq_ls[y_eq_l_ind] = np.sum(p_ks[where_y_eq_ls[y_eq_l_ind]])
+            p_sum = np.sum(p_sums_where_y_eq_ls)
+            return p_sum, p_sums_where_y_eq_ls
 
+        def calc_grad_q_and_grad_q_sums(grad_q):
+            grad_q_sums = []
+            grad_q_sums_where_y_eq_ls = []
+            for param_ind in range(len(grad_q)):
+                iter_add = np.zeros((len(where_y_eq_ls),) + grad_q[param_ind].shape[1:])
+                for l_ind in range(len(where_y_eq_ls)):
+                    iter_add[l_ind] = np.sum(grad_q[param_ind][where_y_eq_ls[l_ind]], axis = 0)
+                grad_q_sums.append(np.sum(iter_add, axis = 0))
+                grad_q_sums_where_y_eq_ls.append(iter_add)
+            return grad_q_sums, grad_q_sums_where_y_eq_ls
 
+        def init_grad_EG():
+            grad_EG = [None for i in range(len(nodes))]
+            for q in nodes:
+                grad_EG[q._ID] = None if q.__model is None else \
+                    [np.zeros(q_param.shape, dtype = q_param.dtype) for q_param in q.__model._params]
+            return tuple(grad_EG)
+
+        grad_EG = init_grad_EG()
 
         for k in leaves:
+            stopwatch = StopwatchProfiler()
+            stopwatch.start()
             k_ID = k._ID
             assert(k_ID is not None)
             p_ks = p_arr[k_ID]
             grad_p_ks = GlobalImpurityNode3.calc_grad_p_arr(nodes, k_ID, p_arr, f_arr, grad_f_arr)
 
-
-            p_sums_where_y_eq_ls = np.zeros(len(where_y_eq_ls))
-            for y_eq_l_ind in range(len(where_y_eq_ls)):
-                p_sums_where_y_eq_ls[y_eq_l_ind] = np.sum(p_ks[where_y_eq_ls[y_eq_l_ind]])
-
-            p_sum = np.sum(p_sums_where_y_eq_ls)
+            p_sum, p_sums_where_y_eq_ls = calc_p_and_p_sums(p_ks)
 
 
 
+
+            stopwatch.lap("ps and grad ps calcd")
 
             u_k = GlobalImpurityNode3.__calc_u(p_sum)
             v_k = GlobalImpurityNode3.__calc_v(p_sums_where_y_eq_ls)
@@ -112,27 +174,22 @@ class GlobalImpurityNode3:
 
             for (q_ID, grad_q) in grad_p_ks:
 
-                grad_q_sums = []
-                grad_q_sums_where_y_eq_ls = []
-                for param_ind in range(len(grad_q)):
-                    iter_add = np.zeros((len(where_y_eq_ls),) + grad_q[param_ind].shape[1:])
-                    for l_ind in range(len(where_y_eq_ls)):
-                        iter_add[l_ind] = np.sum(grad_q[param_ind][where_y_eq_ls[l_ind]], axis = 0)
 
 
-                    grad_q_sums.append(np.sum(iter_add, axis = 0))
-                    grad_q_sums_where_y_eq_ls.append(iter_add)
-
-
+                grad_q_sums, grad_q_sums_where_y_eq_ls = calc_grad_q_and_grad_q_sums(grad_q)
 
 
 
                 grad_u_k = GlobalImpurityNode3.__calc_grad_u(p_sum, grad_q_sums)
-                grad_v_k = GlobalImpurityNode3.__calc_grad_v(p_sums_where_y_eq_ls, grad_q_sums_where_y_eq_ls)#GlobalImpurityNode3.__calc_grad_v(p_sums_where_y_eq_ls, grad_q, y, unique_labels)#
+                grad_v_k = GlobalImpurityNode3.__calc_grad_v(p_sums_where_y_eq_ls, grad_q_sums_where_y_eq_ls)
 
                 for param_ind in range(len(grad_EG[q_ID])):
                     grad_EG[q_ID][param_ind] -=  (v_k*grad_u_k[param_ind] + \
                         u_k*grad_v_k[param_ind])/float(X.shape[0])
+            stopwatch.lap("rest calcd")
+            stopwatch.stop()
+            #print("rel lap times: ", stopwatch.relative_lap_deltas())
+            stopwatch.reset()
 
         return grad_EG
 
