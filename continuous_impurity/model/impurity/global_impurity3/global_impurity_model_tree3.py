@@ -38,27 +38,28 @@ class GlobalImpurityModelTree3:
             if iter%print_progress_iters == 0:
                 print("iter: ", iter)
                 self.__print_progress(leaves, p_arr, X, y, unique_labels)
-
+                
+        #TODO: need to set leaf predicts after training
 
     def __print_progress(self, leaves, p_arr, X, y, unique_labels):
-        GlobalImpurityModelTree3.__set_leaf_predicts(leaves, p_arr, y, unique_labels)
+        self.__set_leaf_predicts(leaves, p_arr, y, unique_labels)
         predictions = self.__head.predict(X)
         unq, counts = np.unique(predictions, return_counts = True)
         print("label distribution: ", [(unq[i], counts[i]) for i in range(len(unq))])
         print("ACCURACY: ", 100.0*np.sum(predictions == y)/float(y.shape[0]))
-        print("EXPECTED GINI: ", GlobalImpurityModelTree3.__expected_GINI(leaves, p_arr, y))
+        print("EXPECTED GINI: ", self.__expected_GINI(leaves, p_arr, y))
         print("----------------------------------")
 
 
 
-    def __expected_GINI(leaves, p_arr, y):
+    def __expected_GINI(self, leaves, p_arr, y):
         subset_assign_probs = np.zeros((y.shape[0], len(leaves)))
         for leaf_ind in range(len(leaves)):
             subset_assign_probs[:,leaf_ind] = p_arr[leaves[leaf_ind]._ID]
         return impurity.expected_gini(subset_assign_probs, y)
 
 
-    def __set_leaf_predicts(leaves, p_arr, y, unique_labels):
+    def __set_leaf_predicts(self, leaves, p_arr, y, unique_labels):
         for leaf in leaves:
             p_leaf = p_arr[leaf._ID]
             l_scores = np.zeros(unique_labels.shape[0])
