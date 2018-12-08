@@ -6,9 +6,8 @@ import model.impurity.global_impurity.global_impurity_tree_math2 as global_impur
 from performance.stopwatch_profiler import StopwatchProfiler
 
 class GlobalImpurityModelTree3:
-
-    def __init__(self, head):#(self, model_at_depth_func):
-        #self.__model_at_depth_func = model_at_depth_func
+    #TODO: make this take the model_at_depth_func and construct/prune
+    def __init__(self, head):
         self.__head = head
 
     def train(self, X, y, learn_rate, n_iters, print_progress_iters = 25, GC_frequency = None):
@@ -21,8 +20,7 @@ class GlobalImpurityModelTree3:
             if GC_frequency is not None and iter%GC_frequency == 0:
                 gc.collect()
 
-            nodes = GlobalImpurityNode3.to_list_and_set_IDs(self.__head)
-            leaves = GlobalImpurityNode3.get_leaves(nodes)
+            nodes, _, leaves = self.__head.to_list()
 
             f_arr = GlobalImpurityNode3.calc_f_arr(nodes, X)
             grad_f_arr = GlobalImpurityNode3.calc_grad_f_arr(nodes, X, f_arr)
@@ -38,7 +36,7 @@ class GlobalImpurityModelTree3:
             if iter%print_progress_iters == 0:
                 print("iter: ", iter)
                 self.__print_progress(leaves, p_arr, X, y, unique_labels)
-                
+
         #TODO: need to set leaf predicts after training
 
     def __print_progress(self, leaves, p_arr, X, y, unique_labels):

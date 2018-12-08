@@ -15,7 +15,30 @@ class GlobalImpurityNode3:
         self._ID = None
         self._leaf_predict = None
 
+    '''
+    Returns (nodes, nonleaves, leaves)
+    Postcondition: Each node has it's ID set to its corresponding index in the list
+        representation.
+    '''
+    def to_list(self):
+        def f(node, nodes):
+            nodes.append(node)
+            for child in node.__children:
+                f(child, nodes)
+        nodes = []
+        f(self, nodes)
+        leaves = []
+        nonleaves = []
+        for node_ind in range(len(nodes)):
+            nodes[node_ind]._ID = node_ind
+            if nodes[node_ind].__is_leaf():
+                leaves.append(nodes[node_ind])
+            else:
+                nonleaves.append(nodes[node_ind])
+        return nodes, nonleaves, leaves
 
+
+    '''
     def to_list_and_set_IDs(head):
         nodes = GlobalImpurityNode3.__to_list(head)
         GlobalImpurityNode3.__set_IDs(nodes)
@@ -37,11 +60,12 @@ class GlobalImpurityNode3:
                 out.append(node)
         return out
 
+
     def __set_IDs(nodes):
         for i in range(len(nodes)):
             nodes[i]._ID = i
 
-
+    '''
 
 
 
