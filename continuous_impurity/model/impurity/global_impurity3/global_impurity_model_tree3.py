@@ -33,16 +33,16 @@ class GlobalImpurityModelTree3:
 
             nodes, nonleaves, leaves = self.__head.to_list()
             stopwatch.lap("node, nonleaves, leaves calc'd")
-            '''
-            f_arr = self.__calc_f_arr(nodes, X)
-            stopwatch.lap("f_arr calc'd")
-            grad_f_arr = self.__calc_grad_f_arr(nodes, nonleaves, X, f_arr)
-            stopwatch.lap("grad_f_arr calc'd")
-            p_arr = self.__calc_p_arr(nodes, X, f_arr)
-            stopwatch.lap("p_arr calc'd")'''
-            comp_head = self.__build_computation_tree(ComputationNode3(None), \
-                self.__gradient_computation_tree_assigner, X)
-            f_arr, grad_f_arr, p_arr = self.__extract_f_grad_f_p(comp_head)
+
+
+            '''comp_head = self.__build_computation_tree(ComputationNode3(None), \
+                self.__gradient_computation_tree_assigner, X)'''
+            f_arr, grad_f_arr, p_arr = self.__calc_outputs(X, 'f', 'grad_f', 'p')#self.__extract_f_grad_f_p(comp_head)
+
+
+
+
+
             stopwatch.lap("f_arr, grad_f_arr, p_arr calcd")
             grad_EG = self.__calc_grad(X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr)
             stopwatch.lap("grad_EG calc'd")
@@ -56,11 +56,11 @@ class GlobalImpurityModelTree3:
                     min_gini_to_grow, max_gini_to_prune, min_data_to_split)
             stopwatch.lap("tree pruned")
             stopwatch.stop()
-            print("absolute lap times: ", stopwatch.lap_deltas())
+            '''print("absolute lap times: ", stopwatch.lap_deltas())
             print("-----------------------------------------------------")
             print("rel lap times: ", stopwatch.relative_lap_deltas())
             print("")
-            print("")
+            print("")'''
             stopwatch.reset()
             if iter%print_progress_iters == 0:
                 print("iter: ", iter)
@@ -274,49 +274,58 @@ class GlobalImpurityModelTree3:
         return out
 
 
-    def __gradient_computation_tree_assigner(self, node, comp_node, X):
-        #setting id just for troubleshooting.
-        comp_node._ID = node._ID
 
-        #for calc'ing all p's
-        if node._is_root():
-            comp_node._p = np.ones(X.shape[0])
-        else:
-            comp_node_child_ind = comp_node._parent._child_ind(comp_node)
-            comp_node._p = comp_node._parent._p * comp_node._parent._f[comp_node_child_ind]
-
-        #for calc'ing all f's and grad f's
-        if not node._is_leaf():
-            comp_node._f = node.f(X)
-            comp_node._grad_f = node.grad_f(X, comp_node._f)
-        else:
-            comp_node._f = None
-            comp_node._grad_f = None
 
     def __build_computation_tree(self, computation_head, computation_assigner_func, X):
         def f(node, comp_node):
-            assert(comp_node._is_leaf())
 
             computation_assigner_func(node, comp_node, X)
 
-            for child in node._children:
-                comp_node_child = ComputationNode3(comp_node)
-                comp_node._add_children(comp_node_child)
-                f(child, comp_node_child)
+            for child_ind in range(len(node._children)):
+                comp_node_child = None
+                if len(comp_node._children) == len(node._children):
+                    comp_node_child = comp_node._children[child_ind]
+                else:
+                    comp_node_child = ComputationNode3(comp_node)
+                    comp_node._add_children(comp_node_child)
+
+                f(node._children[child_ind], comp_node_child)
         f(self.__head, computation_head)
         return computation_head
 
-    def __extract_f_grad_f_p(self, compute_head):
-        f_arr = []
-        grad_f_arr = []
-        p_arr = []
-        def f(comp_node):
-            f_arr.append(comp_node._f)
-            grad_f_arr.append(comp_node._grad_f)
-            p_arr.append(comp_node._p)
-        compute_head.fold_in_place(f)
-        return f_arr, grad_f_arr, p_arr
+    def __calc_outputs(self, X, *names):
+        def f_assigner(node, comp_node, X):
+            if not node._is_leaf():
+                comp_node.f = node.f(X)
+            else:
+                comp_node.f = None
 
+        #assumes comp_node already contains _f
+        def grad_f_assigner(node, comp_node, X):
+            comp_node.grad_f = None if comp_node.f is None else \
+                node.grad_f(X, comp_node.f)
+
+        #assumes comp_node has _f
+        def p_assigner(node, comp_node, X):
+            if node._is_root():
+                comp_node.p = np.ones(X.shape[0], dtype = np.float64)
+            else:
+                comp_node_child_ind = comp_node._parent._child_ind(comp_node)
+                comp_node.p = comp_node._parent.p * comp_node._parent.f[comp_node_child_ind]
+
+        comp_head = ComputationNode3(None)
+        out = []
+        for out_name in names:
+            if out_name == "f":
+                self.__build_computation_tree(comp_head, f_assigner, X)
+            elif out_name == "grad_f":
+                self.__build_computation_tree(comp_head, grad_f_assigner, X)
+            elif out_name == "p":
+                self.__build_computation_tree(comp_head, p_assigner, X)
+            else:
+                raise ValueError("Computation name: " + str(out_name) + " not supported")
+            out.append(comp_head.extract_field(out_name))
+        return tuple(out)
 
     def __print_progress(self, X, y, unique_labels):
         nodes,_,leaves = self.__head.to_list()

@@ -9,6 +9,13 @@ class ComputationNode3(Node3):
         self._parent = parent
 
 
+    def extract_field(self, field_name):
+        out = []
+        def f(node):
+            out.append(getattr(node, field_name))
+        self.fold_in_place(f)
+        return out
+
     def _is_leaf(self):
         return len(self._children) == 0
 
