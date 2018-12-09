@@ -21,4 +21,4 @@ unique_labels = np.unique(y)
 tree = GlobalImpurityModelTree3(node_model3_maker.logistic_model_at_depth(X.shape[1]))
 
 
-tree.train(X, y, 10.0, 100000, 1, 10, 0, 0, 5, iters_per_prune = 5, print_progress_iters = 5)
+tree.train(X, y, 10.0, 100000, 1, 5, 0, 0, 5, iters_per_prune = 5, print_progress_iters = 5)

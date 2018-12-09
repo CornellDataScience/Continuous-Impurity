@@ -3,40 +3,21 @@ import toolbox.numpy_helper as numpy_helper
 import function.impurity as impurity
 import gc
 from performance.stopwatch_profiler import StopwatchProfiler
+from model.impurity.global_impurity3.node3 import Node3
 
 
-
-class GlobalImpurityNode3:
+class GlobalImpurityNode3(Node3):
     #originally had children = [] as default argument, but turns out that whenever
     #that when self._children = children, and then self._children is modified,
     #the default argument children will also be modified since self._children points
     #to it.
     def __init__(self, parent, model):
+        Node3.__init__(self, [])
         self._parent = parent
-        self._children = []
         self._model = model
         self._ID = None
         self._leaf_predict = None
 
-
-
-    def fold(self, f, acc):
-        def traverse(node, acc):
-            acc = f(node, acc)
-            if node._is_leaf():
-                return acc
-            for child in node._children:
-                acc = traverse(child, acc)
-            return acc
-
-        return traverse(self, acc)
-
-    def fold_in_place(self, f):
-        def traverse(node):
-            f(node)
-            for child in node._children:
-                traverse(child)
-        traverse(self)
 
     '''
     Returns (nodes, nonleaves, leaves)
@@ -98,31 +79,15 @@ class GlobalImpurityNode3:
     def grad_f(self, X, f_outs):
         return self._model._grad_f(X, f_outs)
 
-    def _child_ind(self, child):
-        return self._children.index(child)
 
-    def _add_children(self, new_children):
-        if not isinstance(new_children, list):
-            new_children = [new_children]
-        assert(len(new_children) + len(self._children) <= 2), ("children would've been: " + str(len(new_children) + len(self._children)))
-
-        self._children.extend(new_children)
-
-    def __is_root(self):
+    def _is_root(self):
         return self._parent is None
 
 
-    def _is_leaf(self):
-        is_leaf = len(self._children) == 0
-        if is_leaf:
-            assert(self._model is None)
-        return is_leaf
-
     def __depth(self):
-        if self.__is_root():
+        if self._is_root():
             return 0
         return 1 + self._parent.__depth()
-
 
     def __repr__(self):
         return "ID: " + str(self._ID)
