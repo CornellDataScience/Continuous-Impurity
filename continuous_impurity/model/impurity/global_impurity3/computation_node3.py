@@ -19,8 +19,4 @@ class ComputationNode3(Node3):
     def _is_leaf(self):
         return len(self._children) == 0
 
-    def __str__(self):
-        return str(self.__dict__)
-
-    def __repr__(self):
-        return str(self)
+    

@@ -32,6 +32,11 @@ class Node3:
         assert(len(new_children) + len(self._children) <= 2), ("children would've been: " + str(len(new_children) + len(self._children)))
         self._children.extend(new_children)
 
-
     def _is_leaf(self):
         return len(self._children) == 0
+
+    def __str__(self):
+        return str(self.__dict__)
+
+    def __repr__(self):
+        return str(self)

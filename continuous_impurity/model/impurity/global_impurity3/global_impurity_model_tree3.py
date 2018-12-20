@@ -6,6 +6,16 @@ import model.impurity.global_impurity.global_impurity_tree_math2 as global_impur
 from performance.stopwatch_profiler import StopwatchProfiler
 from model.impurity.global_impurity3.computation_node3 import ComputationNode3
 
+
+
+'''
+TODO:
+    - Convert grad_p_arr to use tree-based dynamic programming (perhaps by storing
+      a list in each node in parent-traversal order (i.e. starting with the node's parent,
+      etc.) of p(node|X) w.r.t parameters of models above that node)
+
+    - Cleanup all uses of arrs used for dynamic programming.
+'''
 class GlobalImpurityModelTree3:
     #TODO: make this take the model_at_depth_func and construct/prune
     #TODO: allow for abstract extension for a custom pruning implementation?
@@ -35,16 +45,13 @@ class GlobalImpurityModelTree3:
             stopwatch.lap("node, nonleaves, leaves calc'd")
 
 
-            '''comp_head = self.__build_computation_tree(ComputationNode3(None), \
-                self.__gradient_computation_tree_assigner, X)'''
-            f_arr, grad_f_arr, p_arr = self.__calc_outputs(X, 'f', 'grad_f', 'p')#self.__extract_f_grad_f_p(comp_head)
-
+            f_arr, grad_f_arr, p_arr = self.__calc_outputs(X, 'f', 'grad_f', 'p')
 
 
 
 
             stopwatch.lap("f_arr, grad_f_arr, p_arr calcd")
-            grad_EG = self.__calc_grad(X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr)
+            grad_EG = self.__calc_grad(X,y,unique_labels,where_y_eq_ls, nodes, leaves, f_arr, grad_f_arr, p_arr)#self.__calc_grad(X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr)
             stopwatch.lap("grad_EG calc'd")
             for node_ID in range(len(grad_EG)):
                 if grad_EG[node_ID] is not None:
@@ -120,15 +127,17 @@ class GlobalImpurityModelTree3:
                 dfs_prune(child, node_depth + 1)
         dfs_prune(self.__head, 0)
 
+
         nodes, _, leaves = self.__head.to_list()
-        f_arr = self.__calc_f_arr(nodes, X)
-        p_arr = self.__calc_p_arr(nodes, X, f_arr)
+        f_arr, p_arr = self.__calc_outputs(X, 'f', 'p')
         self.__set_leaf_predicts(leaves, p_arr, y, unique_labels)
+
+
 
 
     #returns grad expected impurity of the whole tree w.r.t. all parameters of
     #node q
-    def __calc_grad(self, X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, p_arr, grad_f_arr):
+    def __calc_grad(self, X, y, unique_labels, where_y_eq_ls, nodes, leaves, f_arr, grad_f_arr, p_arr):
         def calc_p_and_p_sums(p_ks):
             p_sums_where_y_eq_ls = np.zeros(len(where_y_eq_ls))
             for y_eq_l_ind in range(len(where_y_eq_ls)):
@@ -160,7 +169,9 @@ class GlobalImpurityModelTree3:
             k_ID = k._ID
             assert(k_ID is not None)
             p_ks = p_arr[k_ID]
-            grad_p_ks = self.__calc_grad_p_arr(nodes, k_ID, p_arr, f_arr, grad_f_arr)
+
+
+            grad_p_ks = self.__calc_grad_p_arr(nodes, k_ID, p_arr, f_arr, grad_f_arr)#self.__calc_grad_p_arr(nodes, k_ID, comp_node)#
 
             p_sum, p_sums_where_y_eq_ls = calc_p_and_p_sums(p_ks)
 
@@ -179,6 +190,7 @@ class GlobalImpurityModelTree3:
                         u_k*grad_v_k[param_ind])/float(X.shape[0])
 
         return grad_EG
+
 
 
     def __calc_u(self, p_k_sum):
@@ -211,41 +223,7 @@ class GlobalImpurityModelTree3:
             out.append(v_param)
         return out
 
-
-
-
-    def __calc_f_arr(self, nodes, X):
-        out = [None for i in range(len(nodes))]
-        def f(node):
-            if not node._is_leaf():
-                out[node._ID] = node.f(X)
-        self.__head.fold_in_place(f)
-        return out
-
-    def __calc_grad_f_arr(self, nodes, nonleaves, X, f_arr):
-        out = [None for i in range(len(nodes))]
-        for nonleaf_node in nonleaves:
-            out[nonleaf_node._ID] = nonleaf_node.grad_f(X, f_arr[nonleaf_node._ID])
-        return out
-
-    def __calc_p_arr(self, nodes, X, f_arr):
-        head = nodes[0]
-        out = np.zeros((len(nodes), X.shape[0]))
-        out[head._ID] = np.ones(X.shape[0])
-
-        #assumes out[node._ID] is already calculated
-        def p(node):
-            ps = out[node._ID]
-            node_f_outs = f_arr[node._ID]
-            for child_ind in range(len(node._children)):
-                child = node._children[child_ind]
-                child_ID = child._ID
-                out[child_ID] = node_f_outs[child_ind]*ps
-                p(child)
-            return None
-        p(head)
-        return out
-
+    #original
     def __calc_grad_p_arr(self, nodes, leaf_ID, p_arr, f_arr, grad_f_arr):
         #returns an array, L, s.t. L[i] contains information about the ith
         #relevant node to the path to leaf_ID from the head. L[i] is (id, gradient),
@@ -274,6 +252,32 @@ class GlobalImpurityModelTree3:
         return out
 
 
+    '''
+    #for comp node
+    def __calc_grad_p_arr(self, comp_node_leaf):
+
+        assert(comp_node_leaf._is_leaf())
+        out = []
+        p_leaf = comp_node.p
+        q = comp_node._parent
+        q_c = comp_node
+        while q is not None:
+            iter_out = []
+            q_c_ind = q._child_ind(q_c)
+            f_q_c = q.f[q_c_ind]
+            grad_f_q = q.grad_f
+
+            for param_ind in range(len(grad_f_q)):
+                grad_f_param_q_c = grad_f_q[param_ind][q_c_ind]
+                grad_leaf_wrt_q = numpy_helper.stable_divide(p_leaf, f_q_c, 0)[:,np.newaxis] * grad_f_param_q_c
+
+                iter_out.append(grad_leaf_wrt_q)
+            out.append(iter_out)
+
+            q_c = q
+            q = q._parent
+        return out
+    '''
 
 
     def __build_computation_tree(self, computation_head, computation_assigner_func, X):
@@ -293,7 +297,13 @@ class GlobalImpurityModelTree3:
         f(self.__head, computation_head)
         return computation_head
 
-    def __calc_outputs(self, X, *names):
+
+    '''may pass in a comp_head if it already contains useful calculations
+    for another calculation to be added.'''
+    def __calc_output_tree(self, X, *names, comp_head = None):
+        def id_assigner(node, comp_node, X):
+            comp_node._ID = node._ID
+
         def f_assigner(node, comp_node, X):
             if not node._is_leaf():
                 comp_node.f = node.f(X)
@@ -312,9 +322,11 @@ class GlobalImpurityModelTree3:
             else:
                 comp_node_child_ind = comp_node._parent._child_ind(comp_node)
                 comp_node.p = comp_node._parent.p * comp_node._parent.f[comp_node_child_ind]
+        if comp_head is None:
+            comp_head = ComputationNode3(None)
 
-        comp_head = ComputationNode3(None)
-        out = []
+        self.__build_computation_tree(comp_head, id_assigner, X)
+
         for out_name in names:
             if out_name == "f":
                 self.__build_computation_tree(comp_head, f_assigner, X)
@@ -324,13 +336,19 @@ class GlobalImpurityModelTree3:
                 self.__build_computation_tree(comp_head, p_assigner, X)
             else:
                 raise ValueError("Computation name: " + str(out_name) + " not supported")
+        return comp_head
+
+    def __calc_outputs(self, X, *names):
+        comp_head = self.__calc_output_tree(X, *names)
+        out = []
+        for out_name in names:
             out.append(comp_head.extract_field(out_name))
         return tuple(out)
 
+
     def __print_progress(self, X, y, unique_labels):
         nodes,_,leaves = self.__head.to_list()
-        f_arr = self.__calc_f_arr(nodes, X)
-        p_arr = self.__calc_p_arr(nodes, X, f_arr)
+        f_arr, p_arr = self.__calc_outputs(X, 'f', 'p')
         self.__set_leaf_predicts(leaves, p_arr, y, unique_labels)
         predictions = self.__head.predict(X)
         unq, counts = np.unique(predictions, return_counts = True)
