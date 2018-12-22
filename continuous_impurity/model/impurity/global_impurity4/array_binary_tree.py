@@ -68,3 +68,9 @@ def fold(tree, f, acc, start_node = root()):
             acc = traverse(r, acc)
         return acc
     return traverse(start_node, acc)
+
+def void_node_fold(tree, f, start_node = root()):
+    def wrap_f(tree, node, acc):
+        f(node)
+        return None
+    fold(tree, f, None, start_node = start_node)

@@ -38,6 +38,8 @@ class StopwatchProfiler:
         return out
 
     def lap_deltas(self):
+        if self.__is_running():
+            raise ValueError("Cannot return lap deltas while the stopwatch is running")
         out = []
         prev_lap_click_time = self.__start_stop_intervals[0][0]
         for lap_click in self.__lap_click_times:

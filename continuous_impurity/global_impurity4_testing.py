@@ -23,11 +23,11 @@ def d_sigmoid(X, sigmoid_outs):
     return sigmoid_outs*(1-sigmoid_outs)
 
 np.random.seed(seed = 42)
-X,y = datasets.load_iris(return_X_y = True)#datasets.load_digits(return_X_y = True)#
+X,y = datasets.load_digits(return_X_y = True)#datasets.load_iris(return_X_y = True)#
 FEATURES = range(X.shape[1])#[0,1]#
 X = X[:, FEATURES]
 X = X.astype(D_TYPE)
-#X/=16.0
+X/=16.0
 NUM_POINTS = X.shape[0]
 
 X = X[0:NUM_POINTS,:]
@@ -51,26 +51,10 @@ TODO: Make sure that transition from accidentally not treating leaves as leaves,
 
 
 start_time = timeit.default_timer()
-splits = tree.calc_split_tree(X)
-#print("splits: ", splits.shape)
-#print("SPLITS: ", splits)
 
-grad_splits = tree.calc_grad_split_tree(X, splits)
-#print("grad_splits: ", grad_splits.shape)
-#print("GRAD_SPLITS: ", grad_splits)
+tree.train(X,y,50000,50)
 
-p_leaves = tree.calc_p_leaves(splits, slow_assert = False)
-#print("p_leaves: ", p_leaves.shape)
-#print("P_LEAVES: ", p_leaves)
-
-grad_p_leaves = tree.calc_grad_p_leaves(splits, grad_splits, p_leaves)
-
-grad_gini = tree.calc_expected_gini_gradient(X, where_y_eq_ls)
-print("grad_gini: ", grad_gini)
-
-tree.train(X,y,50000,1)
-
-print("p_leaves calc'd in: ", timeit.default_timer() - start_time)
+print("model trained in: ", timeit.default_timer() - start_time)
 '''
 grad_p_leaves_label_sums = tree.calc_label_sum_grad_p_leaves(p_leaves, splits, grad_splits, where_y_eq_ls)
 #print("grad_p_leaves_label_sums: ", grad_p_leaves_label_sums.shape)
