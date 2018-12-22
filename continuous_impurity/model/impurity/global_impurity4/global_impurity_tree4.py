@@ -3,6 +3,8 @@ import function.stable_func as stable_func
 import function.impurity as impurity
 import model.impurity.global_impurity4.array_binary_tree as arr_tree
 import toolbox.numpy_helper as numpy_helper
+
+
 class GlobalImpurityTree4:
 
 
@@ -12,164 +14,88 @@ class GlobalImpurityTree4:
         self.__d_split_func = d_split_func
         self.__params_depth = arr_tree.depth_from(self.__params_tree, arr_tree.root())
         self.__leaf_root_paths = self.__calc_leaf_paths_to_root(self.__params_tree)
-        print("leaf root paths: ", self.__leaf_root_paths.shape)
+
+
 
     def __calc_leaf_paths_to_root(self, tree):
-        '''
-        leaf_ind_range = arr_tree.node_at_depth_range(self.__params_depth - 1)
-        out = np.zeros((leaf_ind_range[1] - leaf_ind_range[0], self.__params_depth), dtype = np.int)
-        out[:,0] = np.arange(leaf_ind_range[0], leaf_ind_range[1], 1)
-        for d_from_leaf in range(1, out.shape[1]):
-            out[:,d_from_leaf] = arr_tree.parent(out[:,d_from_leaf-1])
-        return out'''
-
-        leaf_ind_range = arr_tree.node_at_depth_range(self.__params_depth)
-        out = np.zeros((leaf_ind_range[1] - leaf_ind_range[0], self.__params_depth + 1), dtype = np.int)
-        out[:,0] = np.arange(leaf_ind_range[0], leaf_ind_range[1], 1)
-        for d_from_leaf in range(1, out.shape[1]):
-            out[:,d_from_leaf] = arr_tree.parent(out[:,d_from_leaf-1])
-        return out
-
+        leaf_ind_range = arr_tree.node_at_depth_range(self.__params_depth+1)
+        out = np.zeros((leaf_ind_range[1]-leaf_ind_range[0], self.__params_depth + 1))
+        out[:,out.shape[1]-1] = np.arange(leaf_ind_range[0], leaf_ind_range[1], 1)
+        for d_from_leaf in range(1, self.__params_depth + 1):
+            out[:,out.shape[1] - 1 - d_from_leaf] = arr_tree.parent(out[:,out.shape[1] - d_from_leaf])
+        return out.astype(np.int)
 
     def calc_split_tree(self, X):
         return self.__split_func(np.dot(self.__params_tree, X.T))
 
-    def calc_grad_split_tree(self, X, logit_tree):
-        d_splits = self.__d_split_func(X, logit_tree)
-        return d_splits[:,:,np.newaxis]*X
+    def calc_grad_split_tree(self, X, split_tree, slow_assert = True):
+        out = np.apply_along_axis(lambda f_outs: self.__d_split_func(X, f_outs), 0, split_tree)[:,:,np.newaxis]*X
+        if slow_assert:
+            np.testing.assert_array_almost_equal(out, self.__slow_calc_grad_split_tree(X, split_tree))
+        return out
 
-    #may want to transition all calculations over to be by layer for memory
-    #reasons. Not sure how taking gradients would play into it since it may
-    #need more info
-    def calc_p_tree(self, split_tree):
-        #if memory problems, can easily just have it spit out leaf probs,
-        #only keeping track of parent probs, rather than assigning them to
-        #all for tree
+    def __slow_calc_grad_split_tree(self, X, split_tree):
+        out = np.zeros(split_tree.shape + (X.shape[1],), dtype = split_tree.dtype)
+        for i in range(out.shape[0]):
+            out[i] = self.__d_split_func(X, split_tree[i])[:,np.newaxis]*X
+        return out
+
+    def calc_p_leaves(self, split_tree, slow_assert = True):
         num_X = split_tree[arr_tree.root()].shape[0]
-        p_tree = np.zeros(split_tree.shape)
-        p_tree[arr_tree.root()] = np.ones(num_X)
-        parent_range = np.array([0], dtype = np.int)
-
-        for d in range(1, self.__params_depth):
-
-            d_bounds = arr_tree.node_at_depth_range(d)
-
-            parent_splits = split_tree[parent_range]
-            parent_ps = p_tree[parent_range]
-            p_tree[np.arange(d_bounds[0], d_bounds[1], 2)] = parent_splits*parent_ps
-            p_tree[np.arange(d_bounds[0]+1, d_bounds[1], 2)] = (1.0-parent_splits)*parent_ps
-            parent_range = np.arange(d_bounds[0], d_bounds[1], 1)
-        return p_tree
-
-    def calc_p_leaves(self, split_tree):
-        '''
-        num_X = split_tree[arr_tree.root()].shape[0]
-        parent_ps = np.ones(num_X)
-        parent_range = np.array([0], dtype = np.int)
-
-        for d in range(1, self.__params_depth):
-
-            d_bounds = arr_tree.node_at_depth_range(d)
-            parent_splits = split_tree[parent_range]
-            ps_d = np.zeros((d_bounds[1] - d_bounds[0], num_X), dtype = np.float32)
-            ps_d[np.arange(0, ps_d.shape[0], 2)] = parent_splits*parent_ps
-            ps_d[np.arange(1, ps_d.shape[0], 2)] = (1.0-parent_splits)*parent_ps
-            parent_ps = ps_d
-            parent_range = np.arange(d_bounds[0], d_bounds[1], 1)
-        return parent_ps
-        '''
-        num_X = split_tree[arr_tree.root()].shape[0]
-        parent_ps = np.ones(num_X)
-        parent_range = np.array([0], dtype = np.int)
-
+        p_d_parent = np.ones(num_X, dtype = np.float32)
         for d in range(1, self.__params_depth + 1):
-            d_bounds = arr_tree.node_at_depth_range(d)
-            parent_splits = split_tree[parent_range]
-            ps_d = np.zeros((d_bounds[1] - d_bounds[0], num_X), dtype = np.float32)
-            ps_d[np.arange(0, ps_d.shape[0], 2)] = parent_splits*parent_ps
-            ps_d[np.arange(1, ps_d.shape[0], 2)] = (1.0-parent_splits)*parent_ps
-            parent_ps = ps_d
-            parent_range = np.arange(d_bounds[0], d_bounds[1], 1)
-        return parent_ps
+            d_parent_node_bounds = arr_tree.node_at_depth_range(d)
+            left_splits_d_parent = split_tree[d_parent_node_bounds[0]:d_parent_node_bounds[1]]
+            right_splits_d_parent = 1-left_splits_d_parent
 
-    #since the p(k|X) for all leaves is such a large array it caused memory problems,
-    #this is to mitigate this factor since the gradient of E(G) needs these sums anyway.
-    #returns an array A s.t. A[l,k,d_from_leaf] = the sum over grad p(k|X) w.r.t. theta[d_from_leaf parents from k] over indices such that y_i = l
-    def calc_label_sum_grad_p_leaves(self, leaf_probs, split_tree, grad_split_tree, where_y_eq_ls):
-        grad_split_tree_elem_shape = grad_split_tree[arr_tree.root()].shape
-        out = np.zeros((len(where_y_eq_ls), leaf_probs.shape[0], self.__params_depth) + grad_split_tree_elem_shape[1:], dtype = np.float32)
+            d_node_bounds = arr_tree.node_at_depth_range(d+1)
+            p_d = np.zeros((d_node_bounds[1]-d_node_bounds[0], num_X))
+            p_d[np.arange(0,p_d.shape[0],2)] = left_splits_d_parent*p_d_parent
+            p_d[np.arange(1,p_d.shape[0],2)] = right_splits_d_parent*p_d_parent
+            p_d_parent = p_d
+        if slow_assert:
+            np.testing.assert_array_almost_equal(p_d_parent, self.__slow_calc_p_leaves(split_tree))
+        return p_d_parent
 
-        for d_from_leaf in range(1, self.__params_depth + 1):
-            d_from_leaf_nodes = self.__leaf_root_paths[:, d_from_leaf]
-            d_from_leaf_children = self.__leaf_root_paths[:, d_from_leaf-1]
-            d_from_leaf_children_inds = arr_tree.child_num(d_from_leaf_nodes, d_from_leaf_children)
-            #the below yields a fairly obvious, but kind of annoying pattern to code quickly, for
-            #a possibly faster calculation of d_from_leaf_children_inds. Change later for a possible
-            #speedup
-            #print("d_from_leaf: ", d_from_leaf)
-            #print("d_from_leaf_children_inds: ", d_from_leaf_children_inds)
-            #print("------------------------")
-            where_left = np.where(d_from_leaf_children_inds == 0)
-            where_right = np.where(d_from_leaf_children_inds == 1)
+    def __slow_calc_p_leaves(self, split_tree):
+        num_X = split_tree[arr_tree.root()].shape[0]
+        p_tree = np.zeros((self.__params_tree.shape[0] + 2**(self.__params_depth), num_X), dtype = np.float32)
+        p_tree[arr_tree.root()] = np.ones(num_X, dtype = np.float32)
+        def f(tree, node, acc):
+            if node == arr_tree.root():
+                return None
+            node_parent = arr_tree.parent(node)
+            p_tree[node] = (split_tree[node_parent] if arr_tree.child_num(node_parent, node) == 0 else 1-split_tree[node_parent]) * \
+                p_tree[node_parent]
+        arr_tree.fold(p_tree, f, None)
+        leaf_bounds = arr_tree.node_at_depth_range(self.__params_depth + 1)
+        return p_tree[leaf_bounds[0]:leaf_bounds[1]]
 
+    def calc_grad_p_leaves(self, split_tree, grad_split_tree, p_leaves, slow_assert = True):
+        #indexed by (k is leaf, q is a reachable node from k)
+        #out[k, depth(q), i] = grad p(k|X[i]) w.r.t. theta_q
+        out = np.zeros((p_leaves.shape[0], self.__params_depth) + grad_split_tree.shape[1:], dtype = np.float32)
+        for d in range(self.__params_depth):
+            qs = self.__leaf_root_paths[:,d]
+            q_cs = self.__leaf_root_paths[:,d+1]
+            q_c_child_nums = arr_tree.child_num(qs, q_cs)
 
+            #pretty simple pattern here if can think of a fast way to do that instead
+            #of using np.where() (print q_c_child_nums to see)
+            where_rights = np.where(q_c_child_nums == 1)
+            d_splits = split_tree[qs].copy()
+            d_splits[where_rights] = 1-d_splits[where_rights]
 
-            grad_p_d_from_leaf_minus_1 = np.zeros((leaf_probs.shape[0],) + grad_split_tree_elem_shape, dtype = np.float32)
-            grad_p_d_from_leaf_minus_1[where_left] = numpy_helper.stable_divide(leaf_probs[where_left], split_tree[d_from_leaf_nodes[where_left]], 0)[:,:,np.newaxis] * grad_split_tree[d_from_leaf_nodes[where_left]]
-            grad_p_d_from_leaf_minus_1[where_right] = numpy_helper.stable_divide(leaf_probs[where_right], 1-split_tree[d_from_leaf_nodes[where_right]], 0)[:,:,np.newaxis] * grad_split_tree[d_from_leaf_nodes[where_right]]
-            #try using (List) map here for a small speedup
-            for l_ind in range(len(where_y_eq_ls)):
-                where_y_eq_l = where_y_eq_ls[l_ind]
-                out[l_ind, :, d_from_leaf-1] = np.sum(grad_p_d_from_leaf_minus_1[:,where_y_eq_l], axis = 1)
+            d_grad_splits = grad_split_tree[qs].copy()
+            d_grad_splits[where_rights] = -d_grad_splits[where_rights]
 
+            #not sure what value to use for the div_0_val
+            out[:,d] = numpy_helper.stable_divide(p_leaves, d_splits, 0)[:,:,np.newaxis] *\
+                d_grad_splits
+        if slow_assert:
+            #TODO
+            return out
         return out
-
-
-
-
-    def __calc_sum_grad_p_leaves(self, label_sum_grad_p_leaves):
-        print("label_sum_grad_p_leaves: ", label_sum_grad_p_leaves.shape)
-        print("out: ", np.sum(label_sum_grad_p_leaves, axis = 0) )
-        return np.sum(label_sum_grad_p_leaves, axis = 0)
-
-    def __calc_label_sum_p_leaves(self, p_leaves, where_y_eq_ls):
-        out = np.zeros((len(where_y_eq_ls), p_leaves.shape[0]), dtype = np.float32)
-        for l_ind in range(len(where_y_eq_ls)):
-            out[l_ind] = np.sum(p_leaves[:,where_y_eq_ls[l_ind]])
-        return out
-
-    def __calc_sum_p_leaves(self, p_leaves):
-        return np.sum(p_leaves, axis = 1)
-
-
-    def __calc_expected_gini_gradient(self, p_leaves, label_sum_grad_p_leaves, where_y_eq_ls):
-        sum_grad_p_leaves = self.__calc_sum_grad_p_leaves(label_sum_grad_p_leaves)
-        label_sum_p_leaves = self.__calc_label_sum_p_leaves(p_leaves, where_y_eq_ls)
-        sum_p_leaves = self.__calc_sum_p_leaves(p_leaves)
-        #print("sum_p_leaves: ", sum_p_leaves.shape)
-        #print("sum_p_leaves VALS: ", sum_p_leaves)
-        #print("sum sum_p_leaves: ", np.sum(sum_p_leaves))
-
-        out = np.zeros(self.__params_tree.shape, dtype = self.__params_tree.dtype)
-        #possibly speed this up (may be able to eliminate one or more for loops)
-        for k in range(p_leaves.shape[0]):
-            u_k = self.__calc_u(k, sum_p_leaves)#u[k]
-            #print("u_k: ", u_k)
-            v_k = self.__calc_v(k, label_sum_p_leaves)#v[k]
-            #print("v_k: ", v_k)
-
-            for q_ind in range(1, self.__leaf_root_paths.shape[1]):
-                grad_u_k = self.__calc_grad_u(k, q_ind-1, sum_p_leaves, sum_grad_p_leaves)#grad_u[k]
-                #print("grad_u_k: ", grad_u_k)
-                grad_v_k = self.__calc_grad_v(k, q_ind-1, label_sum_p_leaves, label_sum_grad_p_leaves)#grad_v[k]
-                #print("grad_v_k: ", grad_v_k)
-                q = self.__leaf_root_paths[k,q_ind]
-                out[q] += u_k*grad_v_k + v_k*grad_u_k
-
-
-        out *= -1.0/float(p_leaves[arr_tree.root()].shape[0])
-        return out
-
 
     def train(self, X, y, n_iters, learn_rate):
         unique_labels = np.unique(y)
@@ -177,103 +103,114 @@ class GlobalImpurityTree4:
         for l in unique_labels:
             where_y_eq_ls.append(np.where(y == l)[0])
 
-        for train_iter in range(n_iters):
-            splits = self.calc_split_tree(X)
-            p_leaves = self.calc_p_leaves(splits)
-            grad_splits = self.calc_grad_split_tree(X, splits)
-            grad_p_leaves_label_sums = self.calc_label_sum_grad_p_leaves(p_leaves, splits, grad_splits, where_y_eq_ls)
-            grad_gini = self.__calc_expected_gini_gradient(p_leaves, grad_p_leaves_label_sums, where_y_eq_ls)
+        for iter in range(n_iters):
+
+            grad_gini = self.calc_expected_gini_gradient(X, where_y_eq_ls)#self.calc_expected_gini_gradient_slow(p_leaves, grad_p_leaves, y, unique_labels)
             self.__params_tree -= learn_rate*grad_gini
-            if train_iter%1 == 0:
+            if iter%50 == 0:
+                print("Iter: ", iter)
+                split_tree = self.calc_split_tree(X)
+                p_leaves = self.calc_p_leaves(split_tree)
                 print("EXPECTED GINI: ", impurity.expected_gini(p_leaves.T, y))
+                print("----------------------------------------------")
 
 
+    def calc_expected_gini_gradient(self, X, where_y_eq_ls, slow_assert = True):
+        leaf_range = arr_tree.node_at_depth_range(self.__params_depth+1)
+        splits = self.calc_split_tree(X)
+        grad_splits = self.calc_grad_split_tree(X, splits, slow_assert = False)
+        p_leaves = self.calc_p_leaves(splits, slow_assert = False)
+        grad_p_leaves = self.calc_grad_p_leaves(splits, grad_splits, p_leaves, slow_assert = False)
 
 
-    def __calc_u(self, k, sum_p_leaves):
-        #print("sum_p_leaves: ", sum_p_leaves)
-        return 1.0/sum_p_leaves[k]
+        out = np.zeros(self.__params_tree.shape, dtype = self.__params_tree.dtype)
+        p_leaf_sums = np.sum(p_leaves, axis = 1)
+        grad_p_leaf_sums = np.sum(grad_p_leaves, axis = 2)
 
-    def __calc_v(self, k, label_sum_p_leaves):
-        return np.sum(np.square(label_sum_p_leaves[:,k]))
-
-    def __calc_grad_u(self, k, q_ind, sum_p_leaves, sum_grad_p_leaves):
-        #print("sum_p_leaves: ", sum_p_leaves.shape)
-        #print("sum_grad_p_leaves: ", sum_grad_p_leaves.shape)
-        return -sum_grad_p_leaves[k, q_ind]/(sum_p_leaves[k]*sum_p_leaves[k])
-
-    def __calc_grad_v(self, k, q_ind, label_sum_p_leaves, label_sum_grad_p_leaves):
-        #print("label_sum_p_leaves: ", label_sum_p_leaves.shape)
-        #print("label_sum_grad_p_leaves: ", label_sum_grad_p_leaves.shape)
-        return 2.0*(np.sum(label_sum_p_leaves[:,k][:,np.newaxis]*label_sum_grad_p_leaves[:,k,q_ind], axis = 0))
-
-
-
-
-
-
-
-
-
-
-
-    '''
-    def __calc_u(self, sum_p_leaves):
-        return 1.0/sum_p_leaves
-
-    def __calc_v(self, label_sum_p_leaves):
-        print("label_sum_p_leaves: ", label_sum_p_leaves.shape)
-        return np.sum(np.square(label_sum_p_leaves), axis = 0)
-
-    def __calc_grad_u(self, sum_p_leaves, sum_grad_p_leaves):
-        return -sum_grad_p_leaves/np.square(sum_p_leaves)[:,np.newaxis,np.newaxis]
-
-    def __calc_grad_v(self, label_sum_p_leaves, label_sum_grad_p_leaves):
-        return 2.0*np.sum(label_sum_p_leaves[:,:,np.newaxis,np.newaxis] * label_sum_grad_p_leaves, axis = 0)
-    '''
-
-
-
-
-
-
-    '''
-    returns an array, A, s.t. A[k,q] is grad p(k|X) w.r.t. the qth node starting from
-    the first parent of k
-    '''
-    '''
-    def calc_grad_p_leaves(self, leaf_probs, split_tree, grad_split_tree):
-        grad_split_tree_elem_shape = grad_split_tree[arr_tree.root()].shape
-        #GET VALUEERROR: TOO BIG HERE IF LARGE ENOUGH DEPTH
-        #NOT SURE HOW TO FIX...
-        #print("grad_p_leaves shape: ", (leaf_probs.shape[0], self.__params_depth) + grad_split_tree_elem_shape)
-        out = np.zeros((leaf_probs.shape[0], self.__params_depth) + grad_split_tree_elem_shape)
-        for d_from_leaf in range(1, self.__params_depth):
-            d_from_leaf_nodes = self.__leaf_root_paths[:, d_from_leaf]
-            d_from_leaf_children = self.__leaf_root_paths[:, d_from_leaf - 1]
-            d_from_leaf_children_inds = arr_tree.child_num(d_from_leaf_nodes, d_from_leaf_children)
-            #the below yields a fairly obvious, but kind of annoying pattern to code quickly, for
-            #a possibly faster calculation of d_from_leaf_children_inds. Change later for a possible
-            #speedup
-            #print("d_from_leaf: ", d_from_leaf)
-            #print("d_from_leaf_children_inds: ", d_from_leaf_children_inds)
-            #print("------------------------")
-            where_left = np.where(d_from_leaf_children_inds == 0)
-            where_right = np.where(d_from_leaf_children_inds == 1)
-
-            out[:, d_from_leaf-1] = np.zeros((leaf_probs.shape[0],) + grad_split_tree_elem_shape)
-            #print("depth assign shape; ", out[:,d_from_leaf-1].shape)
-            out[where_left, d_from_leaf-1] = (leaf_probs[where_left]/split_tree[d_from_leaf_nodes[where_left]])[:,:,np.newaxis] * grad_split_tree[d_from_leaf_nodes[where_left]]
-
-            out[where_right, d_from_leaf-1] = (leaf_probs[where_right]/(1-split_tree[d_from_leaf_nodes[where_right]]))[:,:,np.newaxis] * grad_split_tree[d_from_leaf_nodes[where_right]]
-        return out
-
-    def calc_label_sum_grad_p_leaves2(self, leaf_probs, split_tree, grad_split_tree, where_y_eq_ls):
-        grad_split_tree_elem_shape = grad_split_tree[arr_tree.root()].shape
-        grad_p_leaves = self.calc_grad_p_leaves(leaf_probs, split_tree, grad_split_tree)
-        #print("grad_p_leaves: ", grad_p_leaves.shape)
-        out = np.zeros((len(where_y_eq_ls), leaf_probs.shape[0], self.__params_depth) + grad_split_tree_elem_shape[1:], dtype = np.float32)
+        #try calculating whole sums in terms of label sums
+        label_p_leaf_sums = np.zeros((len(where_y_eq_ls), ) + p_leaf_sums.shape)
+        label_grad_p_leaf_sums = np.zeros((len(where_y_eq_ls), ) + grad_p_leaf_sums.shape)
         for l_ind in range(len(where_y_eq_ls)):
-            out[l_ind] = np.sum(grad_p_leaves[:,:,where_y_eq_ls[l_ind]], axis = 2)
+            where_y_eq_l = where_y_eq_ls[l_ind]
+            label_p_leaf_sums[l_ind] = np.sum(p_leaves[:,where_y_eq_l], axis = 1)
+            label_grad_p_leaf_sums[l_ind] = np.sum(grad_p_leaves[:,:,where_y_eq_l], axis = 2)
+
+        u = self.__calc_u(p_leaf_sums)
+        v = self.__calc_v(label_p_leaf_sums)
+        #not sure of how I can prevent the bad duplicates problem...
+        for q_d in range(self.__params_depth):
+            grad_u_wrt_q = self.__calc_grad_u(q_d, p_leaf_sums, grad_p_leaf_sums)
+            grad_v_wrt_q = self.__calc_grad_v(q_d, label_p_leaf_sums, label_grad_p_leaf_sums)
+
+            nodes_at_q_d = self.__leaf_root_paths[:,q_d]
+            unq_nodes_at_q_d = np.unique(nodes_at_q_d)
+
+            #WORKS
+            for k in range(0, leaf_range[1]-leaf_range[0]):
+                out[nodes_at_q_d[k]] += u[k]*grad_v_wrt_q[k] + v[k]*grad_u_wrt_q[k]
+
+
+            #DOESN'T WORK (because nodes_at_q_d often contains duplicates and it seems to only do one assign
+            #for duplicate indices)
+            '''nodes_at_q_d = self.__leaf_root_paths[:,q_d]
+            #print("nodes at q_d: ", nodes_at_q_d)
+            #out[nodes_at_q_d] += u[:,np.newaxis]*grad_v_wrt_q + v[:,np.newaxis]*grad_u_wrt_q'''
+
+        out *= -1.0/float(p_leaves.shape[1])
+        if slow_assert:
+            #TODO
+            return out
         return out
-    '''
+
+
+    def __calc_u(self, p_leaf_sums):
+        return 1.0/p_leaf_sums
+
+    def __calc_grad_u(self, q_d, p_leaf_sums, grad_p_leaf_sums):
+        numerator = -grad_p_leaf_sums[:,q_d]
+        denominator = np.square(p_leaf_sums)
+        return numerator/denominator[:,np.newaxis]
+
+    def __calc_v(self, label_p_leaf_sums):
+        return np.sum(np.square(label_p_leaf_sums), axis = 0)
+
+    def __calc_grad_v(self, q_d, label_p_leaf_sums, label_grad_p_leaf_sums):
+        return 2.0*np.sum(label_p_leaf_sums[:,:,np.newaxis] * label_grad_p_leaf_sums[:,:,q_d], axis = 0)
+
+
+    def __calc_expected_gini_gradient_slow(self, p_leaves, grad_p_leaves, y, unique_labels):
+        out = np.zeros(self.__params_tree.shape, dtype = self.__params_tree.dtype)
+        leaf_range = arr_tree.node_at_depth_range(self.__params_depth + 1)
+        for k in range(0, leaf_range[1]-leaf_range[0]):
+            u_k = self.__calc_u_k_slow(p_leaves[k])
+            v_k = self.__calc_v_k_slow(p_leaves[k], y, unique_labels)
+
+            for q_d in range(self.__params_depth):
+                grad_u_k = self.__calc_grad_u_k_slow(p_leaves[k], grad_p_leaves[k,q_d])
+                grad_v_k = self.__calc_grad_v_k_slow(p_leaves[k], grad_p_leaves[k,q_d], y, unique_labels)
+                out[self.__leaf_root_paths[k,q_d]] +=  u_k*grad_v_k + v_k*grad_u_k
+        out *= -1.0/float(p_leaves.shape[1])
+        return out
+
+    def __calc_u_k_slow(self, p_leaves_k):
+        return 1.0/np.sum(p_leaves_k, axis = 0)
+
+    def __calc_v_k_slow(self, p_leaves_k, y, unique_labels):
+        out = 0
+        for l in unique_labels:
+            out += np.square(np.sum(p_leaves_k[np.where(y == l)], axis = 0))
+        return out
+
+    def __calc_grad_u_k_slow(self, p_leaves_k, grad_p_leaves_k_q):
+        numerator = -np.sum(grad_p_leaves_k_q, axis = 0)
+        denominator = np.square(np.sum(p_leaves_k, axis = 0))
+        return numerator/denominator
+
+    def __calc_grad_v_k_slow(self, p_leaves_k, grad_p_leaves_k_q, y, unique_labels):
+        out = np.zeros(grad_p_leaves_k_q.shape[1:], dtype = self.__params_tree.dtype)
+        for l in unique_labels:
+            where_y_eq_l = np.where(y == l)
+            left = np.sum(p_leaves_k[where_y_eq_l], axis = 0)
+            right = np.sum(grad_p_leaves_k_q[where_y_eq_l], axis = 0)
+            out += left*right
+        return 2.0*out

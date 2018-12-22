@@ -23,7 +23,7 @@ def child_num(n, q):
     if isinstance(n, np.ndarray):
         assert(isinstance(q, np.ndarray))
         assert(n.shape == q.shape)
-        out = np.zeros(n.shape)
+        out = np.zeros(n.shape, dtype = np.int)
         out[np.where(parent(q) != n)] = -1
         out[np.where(right(n) == q)] = 1
         return out
@@ -43,12 +43,15 @@ def right(n):
 def parent(n):
     return np.floor_divide(n-1, 2)#(n-1)//2
 
+#returns the range of indices for which all nodes in the tree will have depth depth.
+#considers the root to be a depth-1 tree.
 def node_at_depth_range(depth):
-    start_ind = np.sum(np.power(2, np.arange(0,depth,1)))
-    return (start_ind, start_ind + 2**depth)
+    start_ind = np.sum(np.power(2, np.arange(0,depth-1,1)))
+    return (start_ind, start_ind + 2**(depth-1))
 
 def depth_from(tree, node):
-    def f(node, val, acc):
+    def f(tree, node, acc):
+        val = tree[node]
         curr_depth, depth_counts = (acc[0], acc[1])
         if (depth_counts + 1)%(2**curr_depth) == 0:
             return (curr_depth+1, 0)
@@ -58,7 +61,7 @@ def depth_from(tree, node):
 #folds in order of: node, left, right
 def fold(tree, f, acc, start_node = root()):
     def traverse(node, acc):
-        acc = f(node, tree[node], acc)
+        acc = f(tree, node, acc)
         r = right(node)
         if r < len(tree):
             acc = traverse(left(node), acc)
