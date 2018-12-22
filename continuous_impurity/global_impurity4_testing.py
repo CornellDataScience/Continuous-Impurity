@@ -40,7 +40,7 @@ for l in unique_labels:
 
 
 
-tree = GlobalImpurityTree4(init_params_tree(X.shape[1], 10), stable_func.sigmoid, d_sigmoid)
+tree = GlobalImpurityTree4(init_params_tree(X.shape[1], 5), stable_func.sigmoid, d_sigmoid)
 
 
 '''

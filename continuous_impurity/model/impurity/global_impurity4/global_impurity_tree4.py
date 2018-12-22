@@ -124,16 +124,18 @@ class GlobalImpurityTree4:
 
 
         out = np.zeros(self.__params_tree.shape, dtype = self.__params_tree.dtype)
-        p_leaf_sums = np.sum(p_leaves, axis = 1)
-        grad_p_leaf_sums = np.sum(grad_p_leaves, axis = 2)
 
-        #try calculating whole sums in terms of label sums
-        label_p_leaf_sums = np.zeros((len(where_y_eq_ls), ) + p_leaf_sums.shape)
-        label_grad_p_leaf_sums = np.zeros((len(where_y_eq_ls), ) + grad_p_leaf_sums.shape)
+        label_p_leaf_sums = np.zeros((len(where_y_eq_ls), p_leaves.shape[0]))
+        label_grad_p_leaf_sums = np.zeros((len(where_y_eq_ls), grad_p_leaves.shape[0], grad_p_leaves.shape[1], grad_p_leaves.shape[3]))
         for l_ind in range(len(where_y_eq_ls)):
             where_y_eq_l = where_y_eq_ls[l_ind]
             label_p_leaf_sums[l_ind] = np.sum(p_leaves[:,where_y_eq_l], axis = 1)
             label_grad_p_leaf_sums[l_ind] = np.sum(grad_p_leaves[:,:,where_y_eq_l], axis = 2)
+
+
+        p_leaf_sums = np.sum(label_p_leaf_sums, axis = 0)
+        grad_p_leaf_sums = np.sum(label_grad_p_leaf_sums, axis = 0)
+
 
         u = self.__calc_u(p_leaf_sums)
         v = self.__calc_v(label_p_leaf_sums)
