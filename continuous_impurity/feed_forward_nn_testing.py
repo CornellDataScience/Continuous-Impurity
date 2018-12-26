@@ -27,11 +27,11 @@ y = y_new
 
 FEATURES = range(X.shape[1])#
 X = X[:, FEATURES]
-X = data_helper.unit_square_normalize(X)
+#X = data_helper.unit_square_normalize(X)
 X = X.astype(D_TYPE)
 #X/=16.0
 NUM_POINTS = X.shape[0]
-(X,y),(a,b) = data_helper.train_test_split(X, y, .5)
+(X,y),(a,b) = data_helper.train_test_split(X, y, .8)
 
 
 

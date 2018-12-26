@@ -41,7 +41,9 @@ class FeedForwardNN:
         A_grad = [np.zeros((forwards[-1].shape[0],) + A.shape, dtype = A.dtype) for A in self._A]
         b_grad = [np.zeros((forwards[-1].shape[0],) + b.shape, dtype = b.dtype) for b in self._b]
 
-        self.__set_last_layer_grads(forwards, d_forwards, A_grad, b_grad)
+        last_A_grad, last_b_grad = self.__calc_last_layer_grads(forwards, d_forwards)
+        A_grad[-1] = last_A_grad
+        b_grad[-1] = last_b_grad
         P_q = None
         for q in range(len(A_grad)-2, -1, -1):
             AD_parent = d_forwards[q+1][:,np.newaxis]*self._A[q+1]
@@ -57,6 +59,12 @@ class FeedForwardNN:
                 b_grad[q][:,m] = np.dot(P_q, b_dot_vec)
         return A_grad, b_grad
 
+    def __calc_last_layer_grads(self, forwards, d_forwards):
+        last_A_grad = np.zeros((forwards[-1].shape[0],) + self._A[-1].shape, dtype = self._A[-1].dtype)
+        last_b_grad = d_forwards[-1]
+        i_range = np.arange(0,last_A_grad.shape[0],1)
+        last_A_grad[i_range, i_range] = np.outer(d_forwards[-1], forwards[len(self._A)-2])
+        return last_A_grad, last_b_grad
 
     def cost_grad(self, x, y):
         forwards = self.forward(x)
@@ -68,16 +76,3 @@ class FeedForwardNN:
             cost_A_grad[l] = self.__cost.d_cost(y, y_hat, y_hat_A_grad[l])
             cost_b_grad[l] = self.__cost.d_cost(y, y_hat, y_hat_b_grad[l])
         return cost_A_grad, cost_b_grad
-
-
-
-
-    def __set_last_layer_grads(self, forwards, d_forwards, A_grad, b_grad):
-        l = len(A_grad)-1
-        for i in range(A_grad[l].shape[0]):
-            for m in range(A_grad[l].shape[1]):
-                if i == m:
-                    b_grad[l][m] = d_forwards[l][i]
-
-                    for n in range(A_grad[l].shape[2]):
-                        A_grad[l][i,m,n] = d_forwards[l][i] * forwards[l-1][n]
