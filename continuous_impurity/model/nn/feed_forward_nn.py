@@ -26,7 +26,7 @@ class FeedForwardNN:
 
     def forward(self, x):
         last_layer_out = x
-        out = [x]
+        out = []
         for l in range(len(self._A)):
             A_l = self._A[l]
             b_l = self._b[l]
@@ -36,9 +36,7 @@ class FeedForwardNN:
             last_layer_out = this_layer_out
         return out
 
-    def backward(self, forwards):
-        x = forwards[0]
-        forwards = forwards[1:]
+    def backward(self, x, forwards):
         d_forwards = [self.__act_funcs[i].derivative_wrt_activation(forwards[i]) for i in range(0,len(forwards))]
         A_grad = [np.zeros((forwards[-1].shape[0],) + A.shape, dtype = A.dtype) for A in self._A]
         b_grad = [np.zeros((forwards[-1].shape[0],) + b.shape, dtype = b.dtype) for b in self._b]
@@ -46,12 +44,8 @@ class FeedForwardNN:
         self.__set_last_layer_grads(forwards, d_forwards, A_grad, b_grad)
         P_q = None
         for q in range(len(A_grad)-2, -1, -1):
-            A_parent = self._A[q+1]
-            D_parent = np.zeros((d_forwards[q+1].shape[0], d_forwards[q+1].shape[0]))
-            for i in range(D_parent.shape[0]):
-                D_parent[i,i] = d_forwards[q+1][i]
-            P_q = np.dot(D_parent, A_parent) if P_q is None else np.dot(P_q, np.dot(D_parent, A_parent))
-
+            AD_parent = d_forwards[q+1][:,np.newaxis]*self._A[q+1]
+            P_q = AD_parent if P_q is None else np.dot(P_q, AD_parent)
             forwards_prev = x if q == 0 else forwards[q-1]
             for m in range(A_grad[q].shape[1]):
                 for n in range(A_grad[q].shape[2]):
@@ -67,7 +61,7 @@ class FeedForwardNN:
     def cost_grad(self, x, y):
         forwards = self.forward(x)
         y_hat = forwards[-1]
-        y_hat_A_grad, y_hat_b_grad = self.backward(forwards)
+        y_hat_A_grad, y_hat_b_grad = self.backward(x, forwards)
         cost_A_grad = [None for i in range(len(y_hat_A_grad))]
         cost_b_grad = [None for i in range(len(y_hat_b_grad))]
         for l in range(0, len(cost_A_grad)):
