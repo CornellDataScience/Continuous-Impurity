@@ -33,6 +33,12 @@ def child_num(n, q):
         return 0
     return 1
 
+#since all left nodes are odd
+def is_left_child(n):
+    return np.mod(n,2) == 1
+
+def is_right_child(n):
+    return np.mod(n,2) == 0
 
 def left(n):
     return 2*n + 1

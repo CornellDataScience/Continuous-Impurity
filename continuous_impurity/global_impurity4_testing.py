@@ -40,14 +40,7 @@ for l in unique_labels:
 
 
 
-tree = GlobalImpurityTree4(init_params_tree(X.shape[1], 5), stable_func.sigmoid, d_sigmoid)
-
-
-'''
-TODO: Make sure that transition from accidentally not treating leaves as leaves, but last model nodes as leaves,
-    have correct for loop bounds
-'''
-
+tree = GlobalImpurityTree4(init_params_tree(X.shape[1], 7), stable_func.sigmoid, d_sigmoid)
 
 
 start_time = timeit.default_timer()
