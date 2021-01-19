@@ -1,5 +1,6 @@
-<object data="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/1509.pdf" type="application/pdf" width="700px" height="700px">
-    <embed src="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/1509.pdf">
-        <p>This browser does not support PDFs. Please download the PDF to view it: <a href="http://yoursite.com/the.pdf">Download PDF</a>.</p>
-    </embed>
-</object>
+![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(1)1024_1.png?raw=true)
+![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(1)1024_2.png?raw=true)
+![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(1)1024_3.png?raw=true)
+![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(1)1024_4.png?raw=true)
+![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(1)1024_5.png?raw=true)
+![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(1)1024_6.png?raw=true)
