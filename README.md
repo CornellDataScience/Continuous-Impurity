@@ -1,5 +1,1 @@
-![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(4)-1.png?raw=true)
-![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(4)-2.png?raw=true)
-![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(4)-3.png?raw=true)
-![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(4)-4.png?raw=true)
-![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(4)-5.png?raw=true)
+![alt text](https://github.com/CornellDataScience/Continuous-Impurity/blob/master/Expected%20GINI%20Readme%20PNGs/Expected_GINI_Github_Readme%20(5)-1.png?raw=true)
